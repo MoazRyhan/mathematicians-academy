@@ -22,9 +22,3 @@ const DataBase =  async  () =>{
 
 
 export default DataBase
-
-
-
-var twoSum = function(nums, target) {
-    
-};
