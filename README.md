@@ -83,12 +83,12 @@ Mathematicians Academy is a **role-based education system** that supports intera
 
 ## 🛠 Tech Stack  
 
-**Frontend**: React.js / Next.js  
-**Backend**: Node.js (Express.js / Nest.js)  
-**Database**: MongoDB / MySQL  
+**Frontend**: React.js
+**Backend**: Node.js (Express.js)  
+**Database**: MongoDB 
 **Real-time**: Socket.IO  
 **Authentication**: JWT + Role-Based Access Control  
-**Video Handling**: Plyr.js or similar  
+**Video Handling**: Plyr.js   
 **Payment**: Vodafone Cash API + Code System  
 
 ---
@@ -97,12 +97,10 @@ Mathematicians Academy is a **role-based education system** that supports intera
 
 ```bash
 # Clone repository
-git clone https://github.com/yourusername/mathematicians-academy.git
+git clone https://github.com/MoazRyhan/mathematicians-academy.git
 
 # Install dependencies
 npm install
-
-# Configure environment variables in .env
 
 # Start development server
 npm run dev
