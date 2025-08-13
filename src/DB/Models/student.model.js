@@ -1,0 +1,38 @@
+const studentSchema = new mongoose.Schema({
+  user: { type: mongoose.Schema.Types.ObjectId, ref: 'User', required: true },
+  fullName: { type: String, required: true },
+  birthDate: { type: Date, required: true },
+  school: { type: String, required: true },
+  grade: { type: String, enum: ['first_secondary', 'second_secondary', 'third_secondary'], required: true },
+  division: { type: String, enum: ['scientific', 'literary', 'statistics'] },
+  governorate: { type: String, required: true },
+  area: { type: String, required: true },
+  address: { type: String, required: true },
+  parentPhoneNumber: { type: String, required: true },
+  fatherJob: { type: String },
+  motherJob: { type: String },
+  nationalId: { type: String },
+  nationalIdImage: { type: String },
+  attendanceLocation: { type: String, enum: ['online', 'center'], required: true },
+  center: { type: mongoose.Schema.Types.ObjectId, ref: 'Center' },
+  status: { type: String, enum: ['pending', 'approved', 'rejected'], default: 'pending' },
+  studentCode: { type: String, unique: true },
+  parent: { type: mongoose.Schema.Types.ObjectId, ref: 'Parent' },
+  assistant: { type: mongoose.Schema.Types.ObjectId, ref: 'Assistant' },
+  totalPoints: { type: Number, default: 0 },
+  redeemablePoints: { type: Number, default: 0 },
+  coursesProgress: [{
+    course: { type: mongoose.Schema.Types.ObjectId, ref: 'Course' },
+    isPaid: { type: Boolean, default: false },
+    paymentDetails: { type: mongoose.Schema.Types.ObjectId, ref: 'Payment' },
+    expirationDate: { type: Date },
+    watchedVideoProgress: { type: Number, default: 0 }, // From 0 to 100
+    submissions: [{ type: mongoose.Schema.Types.ObjectId, ref: 'Submission' }],
+    isSectionSubmitted: { type: Boolean, default: false },
+    isHomeworkSubmitted: { type: Boolean, default: false },
+    isQuizSubmitted: { type: Boolean, default: false },
+    attendanceRegistered: { type: Boolean, default: false },
+  }],
+}, { timestamps: true });
+
+export const Student = mongoose.models.Student || mongoose.model('Student', studentSchema);

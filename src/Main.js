@@ -27,7 +27,9 @@ dotenv.config()
 
 
     const server = app.listen( process.env.PORT || 3000 , (error) =>{
+
         // console.log( "server is running on " , process.env.PORT     );
+        
       if (error) {
        throw error // e.g. EADDRINUSE
         }
