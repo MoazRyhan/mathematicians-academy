@@ -1,3 +1,5 @@
+import mongoose from "mongoose";
+
 const courseSchema = new mongoose.Schema({
   title: { type: String, required: true },
   mathBranch: { type: String, required: true },
@@ -19,4 +21,6 @@ const courseSchema = new mongoose.Schema({
   createdBy: { type: mongoose.Schema.Types.ObjectId, ref: 'Teacher', required: true },
 }, { timestamps: true });
 
-export const Course = mongoose.models.Course || mongoose.model('Course', courseSchema);
+ const Course = mongoose.models.Course || mongoose.model('Course', courseSchema);
+
+  export default Course

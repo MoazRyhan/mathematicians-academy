@@ -1,3 +1,5 @@
+import mongoose from "mongoose";
+
 const paymentSchema = new mongoose.Schema({
   student: { type: mongoose.Schema.Types.ObjectId, ref: 'Student', required: true },
   amount: { type: Number, required: true },
@@ -10,4 +12,7 @@ const paymentSchema = new mongoose.Schema({
   relatedCourse: { type: mongoose.Schema.Types.ObjectId, ref: 'Course' },
 }, { timestamps: true });
 
-export const Payment = mongoose.models.Payment || mongoose.model('Payment', paymentSchema);
+
+const Payment = mongoose.models.Payment || mongoose.model('Payment', paymentSchema);
+
+ export default Payment

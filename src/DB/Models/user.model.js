@@ -1,3 +1,6 @@
+import mongoose from "mongoose";
+import { system_role } from "../../Constants/constants.js";
+
 const userSchema = new mongoose.Schema({
   name: { type: String, required: true },
 
@@ -5,12 +8,19 @@ const userSchema = new mongoose.Schema({
 
   password: { type: String, required: true },
 
-  role: { type: String, enum: ['student', 'teacher', 'supervisor', 'assistant', 'admin', 'accountant', 'parent'], required: true },
+  role: { type: String, 
+    enum: Object.values(system_role) ,
+    required: true },
   
-  phoneNumber: { type: String },
+  phoneNumber: { type: String , require :true },
 
   isActive: { type: Boolean, default: true },
+
+  OTP : { type : String , default : null  }
   
 }, { timestamps: true });
 
-export const User = mongoose.models.User || mongoose.model('User', userSchema);
+ const User = mongoose.models.User || mongoose.model('User', userSchema);
+ 
+
+ export default User
