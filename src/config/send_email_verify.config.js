@@ -1,57 +1,66 @@
-import sgMail from '@sendgrid/mail'
+
+import nodemailer from "nodemailer"
 import EventEmitter from "events"
 
-export const send_email_service = async( { to , subject , html , attachments } )  => {
 
-    
-sgMail.setApiKey(process.env.EMAIL_PASS_KEY);
-const msg = {
-  to  ,
-  from : process.env.EMAIL_NAME_VERIFY , // Use the email address or domain you verified above
-  subject ,
-  html ,
-//   attachments   
-};
-//ES6
-sgMail
-  .send(msg)
-  .then(() => {}, error => {
-    console.error(error);
 
-    if (error.response) {
-      console.error(error.response.body);
+
+
+
+export const send_email_service = async ( {to , subject , html , attachments} )=>{
+
+    try {
+
+        const transport = nodemailer.createTransport({
+            host :"smtp.gmail.com",
+            port:465,
+            secure:true,
+            auth:{
+                user:process.env.SEND_EMAIL_USER,
+                pass : process.env.SEND_EMAIL_PASS
+            },
+            tls:{
+                rejectUnauthorized:false
+            }
+
+        })
+
+
+        const info = await transport.sendMail({
+            from:`DO_NOT REPLY  ${ process.env.SEND_EMAIL_USER}`,
+            to,
+            cc: "moaz666666@outlook.com" ,
+            subject,
+            html,
+            // attachments
+        })
+
+        return info
+        
+    } catch (error) {
+        console.log(" error coming from send email service" , error );
+        return error
     }
-  });
-//ES8
-(async () => {
-  try {
-    await sgMail.send(msg);
-  } catch (error) {
-    console.error(error);
-
-    if (error.response) {
-      console.error(error.response.body)
-    }
-  }
-})();
-
-
-
 }
 
 
-
 export const send_Email_event = new EventEmitter();
-send_Email_event.on(  "Send_Email" , ( ...args ) =>{
 
-    // console.log( args);
+send_Email_event.on( "Send_Email" , ( ...args )=>{
+    // console.log(args , "here the data" );
     
-    const  { to , subject , attachments  , html } = args[0]
-    send_email_service({
-        to ,
-        subject , 
-        html ,
-        // attachments 
-    })
+    const { to , subject , html , attachments } = args[0]
 
-}  )
+    send_email_service({
+        to,
+        subject,
+        html,
+        // attachments
+    })
+    
+
+} )  
+
+
+
+

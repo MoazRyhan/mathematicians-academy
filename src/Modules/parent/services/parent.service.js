@@ -1,0 +1,93 @@
+import User from "../../../DB/Models/user.model.js";
+import Parent from "../../../DB/Models/parent.model.js";
+import { decryption } from "../../../Utils/encryption.utils.js";
+
+
+
+
+
+
+
+
+
+
+
+export const login_service = async (req, res) => {
+  try {
+
+
+
+
+
+
+
+
+    
+    // send the data
+    if (user) {
+      return res
+        .status(201)
+        .json({
+          message: " sign in is success",
+          user,
+          access_token: access_token,
+          refresh_token: refresh_token,
+        });
+    } else {
+      return res.status(409).json({ message: "failed to SignUp" });
+    }
+  } catch (error) {
+    console.log("error in login ===========> ", error);
+    return res.status(500).json({ message: "internal server error " });
+  }
+};
+
+
+
+export const get_parent_data = async (req, res) => {
+  try {
+    // 1️⃣ Get the email of the logged-in user
+    const { email } = req.login_user;
+
+    // 2️⃣ Find the user by email
+    const user = await User.findOne({ email });
+    if (!user) {
+      return res.status(404).json({ message: "❌ User not found" });
+    }
+
+    // 3️⃣ Find the parent linked with this user
+    const parent = await Parent.findOne({ user: user._id })
+      .populate("student"); // ✅ عشان يرجع بيانات الأبناء
+
+    if (!parent) {
+      return res.status(404).json({ message: "❌ Parent not found" });
+    }
+
+    // 4️⃣ Decrypt sensitive fields from User
+    const decryptedUser = {
+      ...user.toObject(),
+      phoneNumber: user.phoneNumber
+        ? await decryption({
+            cipher: user.phoneNumber,
+            secret_key: process.env.PHONE_ENCRYPTION_SECRET,
+          })
+        : null,
+    };
+
+    // 5️⃣ Prepare parent data
+    const parentData = {
+      ...parent.toObject(),
+      // لو في أي فيلدات حساسة جوة Parent (مثلا parentPhoneNumber) ممكن نفكها هنا
+    };
+
+    // 6️⃣ Return response
+    return res.status(200).json({
+      message: "✅ User and Parent data retrieved successfully",
+      user: decryptedUser,
+      parent: parentData,
+    });
+  } catch (error) {
+    console.log("❌ Error from get_parent_data =====>", error);
+    return res.status(500).json({ message: "Internal server error" });
+  }
+};

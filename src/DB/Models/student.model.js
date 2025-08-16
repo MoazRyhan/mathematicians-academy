@@ -64,20 +64,32 @@ const studentSchema = new mongoose.Schema({
 
   assistant: { type: mongoose.Schema.Types.ObjectId, ref: 'Assistant' },
 
+  assistantName: { type: String} ,
+
   totalPoints: { type: Number, default: 0 },
 
   redeemablePoints: { type: Number, default: 0 },
 
   coursesProgress: [{
+  
     course: { type: mongoose.Schema.Types.ObjectId, ref: 'Course' },
+  
     isPaid: { type: Boolean, default: false },
+  
     paymentDetails: { type: mongoose.Schema.Types.ObjectId, ref: 'Payment' },
+  
     expirationDate: { type: Date },
+  
     watchedVideoProgress: { type: Number, default: 0 }, // From 0 to 100
+  
     submissions: [{ type: mongoose.Schema.Types.ObjectId, ref: 'Submission' }],
+  
     isSectionSubmitted: { type: Boolean, default: false },
+  
     isHomeworkSubmitted: { type: Boolean, default: false },
+  
     isQuizSubmitted: { type: Boolean, default: false },
+  
     attendanceRegistered: { type: Boolean, default: false },
   }],
 
