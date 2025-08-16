@@ -1,4 +1,4 @@
-import auth_controller from "../modules/auth/auth_controller.js"
+import auth_controller  from "../Modules/auth/auth.controller.js"
 
 
 
