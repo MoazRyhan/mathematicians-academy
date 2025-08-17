@@ -11,6 +11,9 @@ import Parent from "../../../DB/Models/parent.model.js";
 import { send_Email_event } from "../../../config/send_email_verify.config.js";
 import { encryption } from "../../../Utils/encryption.utils.js";
 import { generateSequentialStudentCode } from "../../../Common/commons.js";
+import Admin from "../../../DB/Models/admin.model.js";
+
+//================================== normal users
 
 export const sign_up_service = async (req, res) => {
   try {
@@ -423,6 +426,18 @@ export const refresh_token_service = async (req, res) => {
   }
 };
 
+
+
+
+
+
+
+
+
+
+
+
+
 //                  any thing above is under testing
 // ==================================================
 
@@ -571,3 +586,56 @@ export const reset_password_service = async (req, res) => {
     return res.status(500).json({ message: "Internal server error" });
   }
 };
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+//================================== admin 
+
+/**
+ * Create new admin account ( and this is just for one time )
+ */
+export const create_admin_service = async (req, res) => {
+  try {
+    const { userId } = req.body;
+
+    // check if user exists
+    const user = await User.findById(userId);
+    if (!user) {
+      return res.status(404).json({ message: "User not found" });
+    }
+
+    if (user.role !== system_role.ADMIN) {
+      return res.status(404).json({ message: "this user is nor admin" });
+    }
+
+    // check if already admin
+    const existingAdmin = await Admin.findOne({ user: userId });
+    if (existingAdmin) {
+      return res.status(400).json({ message: "User is already an admin" });
+    }
+
+    const newAdmin = new Admin({ user: userId });
+    await newAdmin.save();
+
+    return res.status(201).json({
+      message: "Admin created successfully",
+      admin: newAdmin,
+    });
+  } catch (error) {
+    console.log("error in create_admin_service ===========> ", error);
+    return res.status(500).json({ message: "internal server error" });
+  }
+};
+
+

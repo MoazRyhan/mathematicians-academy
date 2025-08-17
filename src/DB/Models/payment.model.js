@@ -9,7 +9,7 @@ const paymentSchema = new mongoose.Schema({
   vodafoneCashImage: { type: String },
   isConfirmed: { type: Boolean, default: false },
   confirmedBy: { type: mongoose.Schema.Types.ObjectId, ref: 'Accountant' },
-  relatedCourse: { type: mongoose.Schema.Types.ObjectId, ref: 'Course' },
+  relatedSession: { type: mongoose.Schema.Types.ObjectId, ref: 'Session' },
 }, { timestamps: true });
 
 

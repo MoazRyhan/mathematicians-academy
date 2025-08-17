@@ -3,13 +3,14 @@ import Student from "../../../DB/Models/student.model.js";
 import User from "../../../DB/Models/user.model.js";
 import Teacher from './../../../DB/Models/teacher.model.js';
 import { cloudinary } from "../../../config/cloudinary.config.js";
-import { decryption } from "../../../Utils/encryption.utils.js";
+import { decryption, encryption } from "../../../Utils/encryption.utils.js";
+import Session from "../../../DB/Models/session.model.js";
 
 
 
 
 
-export const get_student_data = async (req, res) => {
+export const get_student_service = async (req, res) => {
   try {
     // 1️⃣ Get the email of the logged-in user
     const { email } = req.login_user;
@@ -66,8 +67,7 @@ export const get_student_data = async (req, res) => {
 };
 
 
-// 📌 API to update student data with change checker
-export const update_student_data = async (req, res) => {
+export const update_student_service = async (req, res) => {
   try {
     // 1️⃣ Get the email of the logged-in user
     const { email } = req.login_user;
@@ -85,14 +85,44 @@ export const update_student_data = async (req, res) => {
     }
 
     // 4️⃣ Take the updated data from request body
-    const updatedData = req.body;
+    const { name, email: newEmail, phoneNumber, ...studentUpdates } = req.body;
 
-    // 5️⃣ Compare with existing student data
     let isChanged = false;
-    for (let key in updatedData) {
+    const userUpdates = {};
+
+    // 5️⃣ Handle user updates
+    if (name && user.name !== name) {
+      userUpdates.name = name;
+      isChanged = true;
+    }
+
+    if (newEmail && user.email !== newEmail) {
+      userUpdates.email = newEmail;
+      isChanged = true;
+    }
+
+    if (phoneNumber) {
+      // 🔓 decrypt old phone before comparing
+      const decryptedPhone = await decryption({
+        cipher: user.phoneNumber,
+        secret_key: process.env.PHONE_ENCRYPTION_SECRET,
+      });
+
+      if (decryptedPhone !== phoneNumber) {
+        const encryptedPhone = await encryption({
+          value: phoneNumber,
+          secret_key: process.env.PHONE_ENCRYPTION_SECRET,
+        });
+        userUpdates.phoneNumber = encryptedPhone;
+        isChanged = true;
+      }
+    }
+
+    // 6️⃣ Handle student updates
+    for (let key in studentUpdates) {
       if (
-        updatedData[key] !== undefined &&
-        student[key] != updatedData[key] // check difference
+        studentUpdates[key] !== undefined &&
+        student[key] != studentUpdates[key]
       ) {
         isChanged = true;
         break;
@@ -101,32 +131,46 @@ export const update_student_data = async (req, res) => {
 
     if (!isChanged) {
       return res.status(400).json({
-        message: "⚠️ No changes detected. Data is already up to date. please check if one of the data is the same ",
+        message:
+          "⚠️ No changes detected. Data is already up to date. Please check if the new data is different.",
         student,
+        user,
       });
     }
 
-    // 6️⃣ Update the student data if something changed
-    const updatedStudent = await Student.findByIdAndUpdate(
-      student._id,
-      { $set: updatedData }, // apply new data
-      { new: true } // return updated document
-    );
+    // 7️⃣ Apply updates
+    let updatedUser = user;
+    if (Object.keys(userUpdates).length > 0) {
+      updatedUser = await User.findByIdAndUpdate(
+        user._id,
+        { $set: userUpdates },
+        { new: true }
+      );
+    }
 
-    // 7️⃣ Return success response
+    let updatedStudent = student;
+    if (Object.keys(studentUpdates).length > 0) {
+      updatedStudent = await Student.findByIdAndUpdate(
+        student._id,
+        { $set: studentUpdates },
+        { new: true }
+      );
+    }
+
+    // 8️⃣ Return success response
     return res.status(200).json({
-      message: "✅ Student data updated successfully",
+      message: "✅ Student & User data updated successfully",
       student: updatedStudent,
+      user: updatedUser,
     });
   } catch (error) {
-    console.log("❌ Error from update_student_data =====>", error);
+    console.log("❌ Error from update_student_service =====>", error);
     return res.status(500).json({ message: "Internal server error" });
   }
 };
 
 
-
-export const delete_student_account = async (req, res) => {
+export const delete_student_service = async (req, res) => {
   try {
     // 1️⃣ Get logged-in user id
     const { _id } = req.login_user;

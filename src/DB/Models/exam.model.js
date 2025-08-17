@@ -16,7 +16,7 @@ const examSchema = new mongoose.Schema({
     }],
     points: { type: Number, required: true },
   }],
-  relatedCourse: { type: mongoose.Schema.Types.ObjectId, ref: 'Course' },
+  relatedSession: { type: mongoose.Schema.Types.ObjectId, ref: 'Session' },
   timeType: { type: String, enum: Object.values(EXAM_TIME_TYPE), required: true },
   startTime: { type: Date },
   endTime: { type: Date },

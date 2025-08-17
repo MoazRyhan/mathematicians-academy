@@ -1,9 +1,9 @@
 import mongoose from "mongoose";
 
-const courseSchema = new mongoose.Schema({
+const sessionSchema = new mongoose.Schema({
   title: { type: String, required: true },
   mathBranch: { type: String, required: true },
-  prerequisites: [{ type: mongoose.Schema.Types.ObjectId, ref: 'Course' }],
+  prerequisites: [{ type: mongoose.Schema.Types.ObjectId, ref: 'Session' }],
   videoLink: { type: String, required: true },
   videoQuizzes: [{
     questionText: { type: String, required: true },
@@ -21,6 +21,6 @@ const courseSchema = new mongoose.Schema({
   createdBy: { type: mongoose.Schema.Types.ObjectId, ref: 'Teacher', required: true },
 }, { timestamps: true });
 
- const Course = mongoose.models.Course || mongoose.model('Course', courseSchema);
+ const Session = mongoose.models.session || mongoose.model('Session',sessionSchema);
 
-  export default Course
+  export default Session

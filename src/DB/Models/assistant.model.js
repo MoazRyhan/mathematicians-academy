@@ -6,11 +6,14 @@ const assistantSchema = new mongoose.Schema({
 
   user: { type: mongoose.Schema.Types.ObjectId, ref: 'User', required: true },
 
+  admin: [{ type: mongoose.Schema.Types.ObjectId, ref: 'Admin' }],
 
   supervisor: { type: mongoose.Schema.Types.ObjectId, ref: 'Supervisor', required: true },
 
 
   students: [{ type: mongoose.Schema.Types.ObjectId, ref: 'Student' }],
+
+
 
 
   groups: [{ type: mongoose.Schema.Types.ObjectId, ref: 'Group' }],
@@ -20,6 +23,7 @@ const assistantSchema = new mongoose.Schema({
 
 
   performanceScore: { type: Number, default: 100 },
+  
 }, { timestamps: true });
 
 

@@ -69,7 +69,7 @@ export const authentication_middleware = () => {
 export const authorization_middleware = (allow_role) => {
   return async (req, res, next) => {
     try {
-      const { role: login_user_role } = req.loginUser;
+      const { role: login_user_role } = req.login_user;
 
       const is_user_allowed = allow_role.includes(login_user_role);
       if (!is_user_allowed) {

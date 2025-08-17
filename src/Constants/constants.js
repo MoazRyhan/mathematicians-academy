@@ -12,9 +12,6 @@ export const system_role = {
 }
 
 const { USER , ADMIN  } = system_role
-export const ADMIN_USER = [ADMIN, USER  ]
-
-
 
 
 
