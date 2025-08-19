@@ -12,52 +12,20 @@ import { decryption } from "../../../Utils/encryption.utils.js";
 
 
 
-export const login_service = async (req, res) => {
-  try {
-
-
-
-
-
-
-
-
-    
-    // send the data
-    if (user) {
-      return res
-        .status(201)
-        .json({
-          message: " sign in is success",
-          user,
-          access_token: access_token,
-          refresh_token: refresh_token,
-        });
-    } else {
-      return res.status(409).json({ message: "failed to SignUp" });
-    }
-  } catch (error) {
-    console.log("error in login ===========> ", error);
-    return res.status(500).json({ message: "internal server error " });
-  }
-};
-
-
-
 export const get_parent_data = async (req, res) => {
   try {
     // 1️⃣ Get the email of the logged-in user
     const { email } = req.login_user;
 
     // 2️⃣ Find the user by email
-    const user = await User.findOne({ email });
+    const user = await User.findOne({ email } , "-password" );
     if (!user) {
       return res.status(404).json({ message: "❌ User not found" });
     }
 
     // 3️⃣ Find the parent linked with this user
     const parent = await Parent.findOne({ user: user._id })
-      .populate("student"); // ✅ عشان يرجع بيانات الأبناء
+      .populate({ path: "student", select: "-password" });
 
     if (!parent) {
       return res.status(404).json({ message: "❌ Parent not found" });
@@ -91,3 +59,8 @@ export const get_parent_data = async (req, res) => {
     return res.status(500).json({ message: "Internal server error" });
   }
 };
+
+
+
+// any thing below is under testing
+//===========================================

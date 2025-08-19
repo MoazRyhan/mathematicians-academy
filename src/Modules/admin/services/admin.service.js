@@ -286,7 +286,7 @@ export const add_supervisor_service = async (req, res) => {
     const newSupervisor = await Supervisor.create({
       user: newUser._id,
       admin: adminRecord._id,
-      teacher: teacherRecord._id, // ✅ ربطه بالمدرس
+      teacher: teacherRecord._id, // ✅ 
     });
 
     // ✅ push supervisor to admin
@@ -364,8 +364,8 @@ export const add_assistant_service = async (req, res) => {
     const newAssistant = await Assistant.create({
       user: newUser._id,
       admin: adminRecord._id,
-      supervisor: supervisorRecord._id, // ربط بالسوبر فايزر
-    });
+      supervisor: supervisorRecord._id, 
+    })
 
     // ✅ link assistant to admin
     adminRecord.assistants.push(newAssistant._id);
@@ -440,6 +440,97 @@ export const add_accountant_service = async (req, res) => {
   }
 };
 
+export const update_user_service = async (req, res) => {
+  try {
+    const { userId } = req.params;
+    const updates = req.body;
+
+    // 1️⃣ Get user
+    const user = await User.findById(userId);
+    if (!user) {
+      return res.status(404).json({ message: "❌ User not found" });
+    }
+
+      if (user.role === system_role.ADMIN) {
+      return res.status(403).json({ message: "⛔ You cannot update an Admin user" });
+    }
+
+    // 2️⃣ Allow only specific fields
+    const allowedFields = ["name", "email", "phoneNumber"];
+    const filteredUpdates = {};
+    for (let key of allowedFields) {
+      if (updates[key] !== undefined) {
+        filteredUpdates[key] = updates[key];
+      }
+    }
+
+    let isChanged = false;
+
+    // 3️⃣ Check name
+    if (filteredUpdates.name && filteredUpdates.name !== user.name) {
+      isChanged = true;
+    }
+
+    // 4️⃣ Check email + make sure not already taken
+    if (filteredUpdates.email) {
+      if (filteredUpdates.email !== user.email) {
+        const emailExists = await User.findOne({
+          email: filteredUpdates.email.trim().toLowerCase(),
+          _id: { $ne: userId }, // exclude current user
+        });
+
+        if (emailExists) {
+          return res.status(400).json({ message: "❌ use another email " });
+        }
+
+        // normalize email to lowercase before saving
+        filteredUpdates.email = filteredUpdates.email.trim().toLowerCase();
+        isChanged = true;
+      } else {
+        delete filteredUpdates.email; // no change
+      }
+    }
+
+    // 5️⃣ Handle phoneNumber (decrypt before compare)
+    if (filteredUpdates.phoneNumber) {
+      const decryptedPhone = await decryption({
+        cipher: user.phoneNumber,
+        secret_key: process.env.PHONE_ENCRYPTION_SECRET,
+      });
+
+      if (decryptedPhone !== filteredUpdates.phoneNumber) {
+        filteredUpdates.phoneNumber = await encryption({
+          value: filteredUpdates.phoneNumber,
+          secret_key: process.env.PHONE_ENCRYPTION_SECRET,
+        });
+        isChanged = true;
+      } else {
+        delete filteredUpdates.phoneNumber; // no change
+      }
+    }
+
+    // 6️⃣ If nothing changed
+    if (!isChanged) {
+      return res.status(400).json({ message: "⚠️ No changes detected. User is already up to date." });
+    }
+
+    // 7️⃣ Update user
+    const updatedUser = await User.findByIdAndUpdate(
+      userId,
+      { $set: filteredUpdates },
+      { new: true, select: "-password" }
+    );
+
+    return res.status(200).json({
+      message: "✅ User updated successfully",
+      user: updatedUser,
+    });
+  } catch (error) {
+    console.log("❌ Error in update_user_service =====> ", error);
+    return res.status(500).json({ message: "Internal server error" });
+  }
+};
+
 
 export const remove_user_service = async (req, res) => {
   try {
@@ -485,96 +576,10 @@ export const remove_user_service = async (req, res) => {
 };
 
 
-
-//  under testing
-// =================
-
+// any thing below is under testing
+//===========================================
 
 
-
-// student also
-export const update_user_service = async (req, res) => {
-  try {
-    const { userId } = req.params;
-    const updates = req.body;
-
-    // 1️⃣ Get user
-    const user = await User.findById(userId);
-    if (!user) {
-      return res.status(404).json({ message: "❌ User not found" });
-    }
-
-        if (user.role === system_role.ADMIN) {
-      return res.status(403).json({ message: "⛔ You cannot update an Admin user" });
-    }
-
-    // 2️⃣ Allow only specific fields
-    const allowedFields = ["name", "email", "phoneNumber"];
-    const filteredUpdates = {};
-    for (let key of allowedFields) {
-      if (updates[key] !== undefined) {
-        filteredUpdates[key] = updates[key];
-      }
-    }
-
-    let isChanged = false;
-
-    // 3️⃣ Check name
-    if (filteredUpdates.name !== user.name) {
-      isChanged = true;
-    }
-
-    // 4️⃣ Check email + make sure not already taken
-    if (filteredUpdates.email  !== user.email) {
-      const emailExists = await User.findOne({
-        email: filteredUpdates.email,
-        _id: { $ne: userId }, // exclude current user
-      });
-      if (emailExists) {
-        return res.status(400).json({ message: "❌ Email already exists" });
-      }
-      isChanged = true;
-    }
-
-    // 5️⃣ Handle phoneNumber (decrypt before compare)
-    if (filteredUpdates.phoneNumber) {
-      const decryptedPhone = await decryption({
-        cipher: user.phoneNumber,
-        secret_key: process.env.PHONE_ENCRYPTION_SECRET,
-      });
-
-      if (decryptedPhone !== filteredUpdates.phoneNumber) {
-        filteredUpdates.phoneNumber = await encryption({
-          value: filteredUpdates.phoneNumber,
-          secret_key: process.env.PHONE_ENCRYPTION_SECRET,
-        });
-        isChanged = true;
-      } else {
-        delete filteredUpdates.phoneNumber; // no change
-      }
-    }
-
-    // 6️⃣ If nothing changed
-    if (!isChanged) {
-      return res.status(400).json({ message: "⚠️ No changes detected. User is already up to date." });
-    }
-
-    // 7️⃣ Update user
-    const updatedUser = await User.findByIdAndUpdate(
-      userId,
-      { $set: filteredUpdates },
-      { new: true, select: "-password" }
-    );
-
-    return res.status(200).json({
-      message: "✅ User updated successfully",
-      user: updatedUser,
-    });
-  } catch (error) {
-    console.log("❌ Error in update_user_service =====> ", error);
-    return res.status(500).json({ message: "Internal server error" });
-  }
-};
 
 
 

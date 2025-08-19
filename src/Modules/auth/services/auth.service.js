@@ -9,7 +9,7 @@ import Student from "../../../DB/Models/student.model.js";
 import blackList from "./../../../DB/Models/blackList.model.js";
 import Parent from "../../../DB/Models/parent.model.js";
 import { send_Email_event } from "../../../config/send_email_verify.config.js";
-import { encryption } from "../../../Utils/encryption.utils.js";
+import { decryption, encryption } from "../../../Utils/encryption.utils.js";
 import { generateSequentialStudentCode } from "../../../Common/commons.js";
 import Admin from "../../../DB/Models/admin.model.js";
 
@@ -213,8 +213,6 @@ export const sign_up_parent_service = async (req, res) => {
       studentNationalId,
     } = req.body;
 
-    // console.log( req.body);
-
     // 1. Ensure that the role is Parent
     if (role !== system_role.PARENT) {
       return res
@@ -250,33 +248,58 @@ export const sign_up_parent_service = async (req, res) => {
       return res.status(400).json({ message: "Email already registered" });
     }
 
-    // 6. Hash the password
+    // 5. Hash the password
     const hashedPassword = hashSync(password, +process.env.PASSWORD_SALT);
 
-    // Encrypt phone number
+    // 6. Encrypt phone number
     const encryptedPhoneNumber = await encryption({
       value: phoneNumber,
       secret_key: process.env.PHONE_ENCRYPTION_SECRET,
     });
 
-    // 5. Find student by name and national ID (compare hash)
-    const hashedStudentNationalId = hashSync(
-      studentNationalId,
-      +process.env.NATIONAL_ID_SALT
-    );
-
+    // 7. Find student by name
     const existingStudent = await Student.findOne({
       fullName: studentName,
-      nationalId: hashedStudentNationalId,
     });
+
+    // make sure that the student is not pending
+    if (existingStudent.status !== STUDENT_ENUMS.STATUS.PENDING) {
+      return res
+        .status(404)
+        .json({
+          message:
+            "❌  this application is pending wait till the admin give the approvement for your son request",
+        });
+    }
+
+    if (existingStudent.status === STUDENT_ENUMS.STATUS.REJECTED) {
+      return res
+        .status(404)
+        .json({
+          message:
+            "❌ your son application is rejected call the MS or apply again later",
+        });
+    }
 
     if (!existingStudent) {
       return res
         .status(404)
-        .json({ message: "Student with this name and national ID not found" });
+        .json({ message: "Student with this name not found" });
     }
 
-    // 7. Create the user
+    // 8. Decrypt stored national ID to compare
+    const decryptedStudentNationalId = await decryption({
+      cipher: existingStudent.nationalId,
+      secret_key: process.env.NATIONAL_ID_SECRET_KEY,
+    });
+
+    if (decryptedStudentNationalId !== studentNationalId) {
+      return res
+        .status(400)
+        .json({ message: "National ID does not match this student" });
+    }
+
+    // 9. Create the user
     const createdUser = await User.create({
       name,
       email,
@@ -285,13 +308,13 @@ export const sign_up_parent_service = async (req, res) => {
       phoneNumber: encryptedPhoneNumber,
     });
 
-    // 8. Create the Parent document and link it to the student
+    // 10. Create the Parent document and link it to the student
     await Parent.create({
       user: createdUser._id,
       students: [existingStudent._id],
     });
 
-    // 9. Send success response
+    // 11. Send success response
     return res.status(201).json({
       message: "Parent registered successfully and linked to student",
       userId: createdUser._id,
@@ -314,18 +337,29 @@ export const login_service = async (req, res) => {
     }
 
     // find the student
-    const Student = await User.findById(user._id);
-    if (!user) {
+    const ComingUser = await User.findById(user._id);
+    if (!ComingUser) {
       return res.status(404).json({ message: "this email is not exists" });
     }
 
-    // 1 check the status
-    if (Student.status == STUDENT_ENUMS.STATUS.PENDING) {
-      return res.status(409).json({
-        message:
-          "this application is pending wait till the admin give the approvement",
-      });
+    if (ComingUser.role == system_role.STUDENT) {
+      const student = await Student.findOne({ user: ComingUser._id });
+      if (student.status == STUDENT_ENUMS.STATUS.PENDING) {
+        return res.status(409).json({
+          message:
+            "this application is pending wait till the admin give the approvement",
+        });
+      } else if (student.status == STUDENT_ENUMS.STATUS.REJECTED) {
+        return res
+          .status(404)
+          .json({
+            message:
+              "❌ your application is rejected call the MS or try again later",
+          });
+      }
     }
+
+    // 1 check the status
 
     // check the password
     const pass_right = compareSync(password, user.password);
@@ -426,20 +460,8 @@ export const refresh_token_service = async (req, res) => {
   }
 };
 
-
-
-
-
-
-
-
-
-
-
-
-
-//                  any thing above is under testing
-// ==================================================
+// any thing below is under testing
+//===========================================
 
 export const forget_password_service = async (req, res) => {
   try {
@@ -587,20 +609,7 @@ export const reset_password_service = async (req, res) => {
   }
 };
 
-
-
-
-
-
-
-
-
-
-
-
-
-
-//================================== admin 
+//================================== admin
 
 /**
  * Create new admin account ( and this is just for one time )
@@ -637,5 +646,3 @@ export const create_admin_service = async (req, res) => {
     return res.status(500).json({ message: "internal server error" });
   }
 };
-
-

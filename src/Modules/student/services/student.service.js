@@ -5,6 +5,9 @@ import Teacher from './../../../DB/Models/teacher.model.js';
 import { cloudinary } from "../../../config/cloudinary.config.js";
 import { decryption, encryption } from "../../../Utils/encryption.utils.js";
 import Session from "../../../DB/Models/session.model.js";
+import Payment from "../../../DB/Models/payment.model.js";
+import Submission from "../../../DB/Models/submission.model.js";
+import { STUDENT_ENUMS } from "../../../Constants/constants.js";
 
 
 
@@ -25,6 +28,16 @@ export const get_student_service = async (req, res) => {
     const student = await Student.findOne({ user: user._id });
     if (!student) {
       return res.status(404).json({ message: "❌ Student not found" });
+    }
+
+    // make sure that the student is not pending
+    if (student.status === STUDENT_ENUMS.STATUS.PENDING ) {
+      return res.status(404).json({ message: "❌ wait tell the admin acc your request" });
+    }
+
+        // make sure that the student is not pending
+    if (student.status === STUDENT_ENUMS.STATUS.REJECTED ) {
+      return res.status(404).json({ message: "❌ your application is rejected call the MS or try again later" });
     }
 
     // 4️⃣ Decrypt sensitive fields
@@ -90,19 +103,33 @@ export const update_student_service = async (req, res) => {
     let isChanged = false;
     const userUpdates = {};
 
-    // 5️⃣ Handle user updates
+    // 5️⃣ Handle user.name
     if (name && user.name !== name) {
       userUpdates.name = name;
       isChanged = true;
     }
 
-    if (newEmail && user.email !== newEmail) {
-      userUpdates.email = newEmail;
-      isChanged = true;
+    // 6️⃣ Handle user.email (check uniqueness + lowercase)
+    if (newEmail) {
+      const normalizedEmail = newEmail.trim().toLowerCase();
+
+      if (normalizedEmail !== user.email) {
+        const emailExists = await User.findOne({
+          email: normalizedEmail,
+          _id: { $ne: user._id }, // exclude current user
+        });
+
+        if (emailExists) {
+          return res.status(400).json({ message: "❌ Email already in use, please choose another one" });
+        }
+
+        userUpdates.email = normalizedEmail;
+        isChanged = true;
+      }
     }
 
+    // 7️⃣ Handle user.phoneNumber (with encryption/decryption)
     if (phoneNumber) {
-      // 🔓 decrypt old phone before comparing
       const decryptedPhone = await decryption({
         cipher: user.phoneNumber,
         secret_key: process.env.PHONE_ENCRYPTION_SECRET,
@@ -118,7 +145,7 @@ export const update_student_service = async (req, res) => {
       }
     }
 
-    // 6️⃣ Handle student updates
+    // 8️⃣ Handle student updates
     for (let key in studentUpdates) {
       if (
         studentUpdates[key] !== undefined &&
@@ -129,6 +156,7 @@ export const update_student_service = async (req, res) => {
       }
     }
 
+    // 9️⃣ If nothing changed
     if (!isChanged) {
       return res.status(400).json({
         message:
@@ -138,13 +166,13 @@ export const update_student_service = async (req, res) => {
       });
     }
 
-    // 7️⃣ Apply updates
+    // 🔟 Apply updates
     let updatedUser = user;
     if (Object.keys(userUpdates).length > 0) {
       updatedUser = await User.findByIdAndUpdate(
         user._id,
         { $set: userUpdates },
-        { new: true }
+        { new: true, select: "-password" }
       );
     }
 
@@ -157,7 +185,7 @@ export const update_student_service = async (req, res) => {
       );
     }
 
-    // 8️⃣ Return success response
+    // 1️⃣1️⃣ Return success
     return res.status(200).json({
       message: "✅ Student & User data updated successfully",
       student: updatedStudent,
@@ -212,8 +240,121 @@ export const delete_student_service = async (req, res) => {
 };
 
 
-// any thing above is under testing
+// any thing below is under testing
 //===========================================
 
 
 
+// ✅ Get Student Sessions by grade & division
+
+export const getStudentSessions = async (req, res) => {
+  try {
+    const { _id } = req.login_user;
+
+    // 🔹 Get student info
+    const student = await Student.findOne({ user: _id });
+    if (!student) {
+      return res.status(404).json({ message: "❌ Student not found" });
+    }
+
+    // 🔹 Get only needed fields
+    const sessions = await Session.find(
+      {
+        grade: student.grade,
+        division: student.division,
+        isActive: true
+      },
+      "title mathBranch grade createdAt" // ✅ Projection
+    ).populate({
+  path: "createdBy",        // 👨‍🏫 Teacher
+  populate: {
+    path: "user",           // 👤 User inside Teacher
+    select: "name"          // ✅ get only the name
+  }
+})// ✅ teacher name only
+
+    // 🔹 Format createdAt before sending
+    const formattedSessions = sessions.map((s) => ({
+      _id: s._id,
+      title: s.title,
+      mathBranch: s.mathBranch,
+      grade: s.grade,
+      createdBy : s.createdBy?.user?.name || "Unknown" ,
+      createdAt: s.createdAt.toLocaleDateString("en-GB") // 🔥 dd/mm/yyyy
+    }));
+
+    return res.status(200).json({
+      message: "✅ Student sessions fetched successfully",
+      sessions: formattedSessions
+    });
+  } catch (error) {
+    console.error("❌ Error in getStudentSessions ============>", error);
+    return res.status(500).json({ message: "Internal server error" });
+  }
+};
+
+
+
+export const getAccessibleSessions = async (req, res) => {
+  try {
+    const { _id } = req.login_user;
+
+    // 1) كل الحصص اللي الطالب دفعها واتأكدت
+    const paidSessions = await Payment.find({ 
+      student: _id, 
+      isConfirmed: true 
+    }).populate("relatedSession");
+
+    const accessibleSessions = [];
+
+    for (const payment of paidSessions) {
+      const session = await Session.findById(payment.relatedSession._id)
+        .populate("prerequisites");
+
+      let canAccess = true;
+
+      // 2) لو في prerequisite
+      if (session.prerequisites.length > 0) {
+        for (const prereq of session.prerequisites) {
+          // Check homework submission for prerequisite
+          const homeworkSubmission = await Submission.findOne({
+            student: _id,
+            session: prereq._id,
+            submissionType: "HOMEWORK",
+            isCorrected: true
+          });
+
+          if (!homeworkSubmission) {
+            canAccess = false;
+            break;
+          }
+
+          // TODO: add check for student attendance if needed
+        }
+      }
+
+      if (canAccess) accessibleSessions.push(session);
+    }
+
+    return res.status(200).json({
+      message: "✅ Accessible sessions fetched",
+      sessions: accessibleSessions
+    });
+
+  } catch (error) {
+    console.error("❌ Error in getAccessibleSessions:", error);
+    return res.status(500).json({ message: "Internal server error" });
+  }
+};
+
+
+
+/*
+- عرض جدول الحصص✔✔
+-  الفديوهات هتكون من اليوتيوب  مشاهدة فيديو الحصة (مع التحقق من الدفع والشروط)
+- إإرسال إجابات الكويز داخل الفيديو
+- تسليم واجب
+- تسليم سكشن
+- عرض نتيجة (واجب/كويز/سكشن)
+
+*/ 

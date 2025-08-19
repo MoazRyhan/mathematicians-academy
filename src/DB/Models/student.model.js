@@ -70,9 +70,9 @@ const studentSchema = new mongoose.Schema({
 
   redeemablePoints: { type: Number, default: 0 },
 
-  coursesProgress: [{
+  sessionProgress: [{
   
-    course: { type: mongoose.Schema.Types.ObjectId, ref: 'Course' },
+    session: { type: mongoose.Schema.Types.ObjectId, ref: 'Session' },
   
     isPaid: { type: Boolean, default: false },
   

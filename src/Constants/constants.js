@@ -109,7 +109,12 @@ export const ERROR_FILE_TYPE = {
 };
 
 
+// 📂 session.enum.js
 
+export const SESSION_TIME = {
+    IMMEDIATE: 'immediate',
+    SCHEDULED: 'scheduled' 
+}
 
 
 

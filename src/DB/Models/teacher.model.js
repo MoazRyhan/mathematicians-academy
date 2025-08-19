@@ -13,11 +13,10 @@ const teacherSchema = new mongoose.Schema({
   
   
   supervisors: [{ type: mongoose.Schema.Types.ObjectId, ref: 'Supervisor' }],
-
-
   
   
   assistants: [{ type: mongoose.Schema.Types.ObjectId, ref: 'Assistant' }],
+
 }, { timestamps: true });
 
  const Teacher = mongoose.models.Teacher || mongoose.model('Teacher', teacherSchema);

@@ -12,7 +12,7 @@ parent_controller.use(authentication_middleware() , authorization_middleware([PA
 
 
 
-parent_controller.post( "/get_parent_date"  , error_handler_middleware(parent_services.get_parent_data  ))
+parent_controller.get( "/get_parent_data"  , error_handler_middleware(parent_services.get_parent_data  ))
 
 
 
