@@ -1,4 +1,5 @@
 import mongoose from "mongoose";
+import { PAYMENT_TYPE } from "../../Constants/constants.js";
 
 const paymentSchema = new mongoose.Schema({
 
@@ -6,13 +7,17 @@ const paymentSchema = new mongoose.Schema({
 
   amount: { type: Number, required: true },
 
-  paymentMethod: { type: String, enum: ['code', 'vodafone_cash'], required: true },
+  paymentMethod: { type: String, enum: Object.values(PAYMENT_TYPE), required: true },
 
   paymentCode: { type: String },
 
   vodafoneCashNumber: { type: String },
 
-  vodafoneCashImage: { type: String },
+  vodafoneCashImage: {
+        images :{public_id : String,
+        secure_url : String },
+        folderId : String 
+},
 
   isConfirmed: { type: Boolean, default: false },
 

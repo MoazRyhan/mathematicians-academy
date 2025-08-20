@@ -40,8 +40,8 @@ const sessionSchema = new mongoose.Schema({
   availabilityType: {
     type: String,
     enum: Object.values(SESSION_TIME),
-    default :  SESSION_TIME.IMMEDIATE ,
-    required: true
+    default : SESSION_TIME.IMMEDIATE , // ['immediate', 'scheduled']
+    required: true,
   },
   availableAt: {
     type: Date, // only required if availabilityType = "SCHEDULED"

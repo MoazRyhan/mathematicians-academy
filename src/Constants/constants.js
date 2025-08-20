@@ -83,12 +83,13 @@ export const SUBMISSION_REVIEW_STATUS = {
 
 export const EXAM_TYPE = {
     FIXED: 'fixed',
-    QUESTION_BANK: 'question_bank'
+    QUESTION_BANK: 'question_bank' ,
+    MONTHLY : "monthly"
 };
 
 export const EXAM_QUESTION_TYPE = {
     MULTIPLE_CHOICE: 'multiple_choice',
-    ESSAY: 'essay'
+    ESSAY: 'essay' 
 };
 
 export const EXAM_TIME_TYPE = {
@@ -115,6 +116,15 @@ export const SESSION_TIME = {
     IMMEDIATE: 'immediate',
     SCHEDULED: 'scheduled' 
 }
+
+
+// 📂 payment.enum.js
+
+export const PAYMENT_TYPE = {
+    CASH: 'cash',
+    VODAFONE_CASH: 'vodafone_cash' 
+}
+
 
 
 

@@ -8,6 +8,7 @@ import Session from "../../../DB/Models/session.model.js";
 import Payment from "../../../DB/Models/payment.model.js";
 import Submission from "../../../DB/Models/submission.model.js";
 import { STUDENT_ENUMS } from "../../../Constants/constants.js";
+import { PAYMENT_TYPE } from "../../../Constants/constants.js";
 
 
 
@@ -240,14 +241,8 @@ export const delete_student_service = async (req, res) => {
 };
 
 
-// any thing below is under testing
-//===========================================
-
-
-
 // ✅ Get Student Sessions by grade & division
-
-export const getStudentSessions = async (req, res) => {
+export const get_Student_Sessions_service = async (req, res) => {
   try {
     const { _id } = req.login_user;
 
@@ -293,9 +288,134 @@ export const getStudentSessions = async (req, res) => {
   }
 };
 
+// any thing below is under testing
+//===========================================
 
 
-export const getAccessibleSessions = async (req, res) => {
+
+
+
+
+
+
+export const make_payment_service = async (req, res) => {
+  try {
+    const { _id: studentId } = req.login_user;
+    const {
+      amount,
+      paymentMethod,
+      paymentCode,
+      vodafoneCashNumber,
+      relatedSession
+    } = req.body;
+
+    const files = req.files || []; // ✅ الصور المرفوعة (باستخدام multer مثلاً)
+
+    // ✅ تحقق من البيانات الأساسية
+    if (!amount || !paymentMethod) {
+      return res.status(400).json({ message: "❌ amount and paymentMethod are required" });
+    }
+
+    // ✅ لو Vodafone Cash لازم رقم وتحميل صورة واحدة فقط
+    if (paymentMethod === PAYMENT_TYPE.VODAFONE_CASH) {
+      if (!vodafoneCashNumber) {
+        return res.status(400).json({ message: "❌ Vodafone Cash number is required" });
+      }
+      if (files.length === 0) {
+        return res.status(400).json({ message: "❌ Vodafone Cash image is required" });
+      }
+      if (files.length > 1) {
+        return res.status(400).json({ message: "❌ Only one image is allowed for Vodafone Cash" });
+      }
+    }
+
+    let vodafoneCashImageData = null;
+
+    // ✅ رفع الصورة على Cloudinary لو Vodafone Cash
+    if (files.length === 1) {
+      const folderPath = `${process.env.FOLDER_NAME_CLOUDINARY}/User/vodafoneCashImage/${studentId}`;
+
+      const { public_id, secure_url } = await cloudinary().uploader.upload(files[0].path, {
+        folder: folderPath,
+      });
+
+      vodafoneCashImageData = {
+        image: { public_id, secure_url },
+        folderId: folderPath
+      };
+    }
+
+    const newPayment = await Payment.create({
+      student: studentId,
+      amount,
+      paymentMethod,
+      paymentCode,
+      vodafoneCashNumber,
+      vodafoneCashImage: vodafoneCashImageData,
+      relatedSession
+    });
+
+    return res.status(201).json({
+      message: "✅ Payment request submitted, awaiting confirmation",
+      payment: newPayment
+    });
+  } catch (error) {
+    console.error("❌ error in make_payment:", error);
+    return res.status(500).json({ message: "Internal server error" });
+  }
+};
+
+export const watch_session_video_service = async (req, res) => {
+  try {
+    const { sessionId } = req.params;
+    const { _id: studentId } = req.login_user;
+
+    // ✅ التحقق أن الحصة موجودة
+    const session = await Session.findById(sessionId);
+    if (!session) {
+      return res.status(404).json({ message: "❌ Session not found" });
+    }
+
+    // ✅ تحقق من الدفع
+    const payment = await Payment.findOne({
+      student: studentId,
+      relatedSession: sessionId,
+      isConfirmed: true
+    });
+
+    if (!payment) {
+      return res.status(403).json({ message: "❌ Payment required to watch this session" });
+    }
+
+    return res.status(200).json({
+      message: "✅ Access granted",
+      videoUrl: session.videoUrl
+    });
+  } catch (error) {
+    console.error("❌ error in watch_session_video:", error);
+    return res.status(500).json({ message: "Internal server error" });
+  }
+};
+
+export const get_payment_history_service = async (req, res) => {
+  try {
+    const { _id: studentId } = req.login_user;
+
+    const payments = await Payment.find({ student: studentId })
+      .populate("relatedSession", "title date")
+      .sort({ createdAt: -1 });
+
+    return res.status(200).json({
+      message: "✅ Payment history fetched successfully",
+      payments
+    });
+  } catch (error) {
+    console.error("❌ error in get_payment_history:", error);
+    return res.status(500).json({ message: "Internal server error" });
+  }
+};
+
+export const get_Accessible_Sessions_service = async (req, res) => {
   try {
     const { _id } = req.login_user;
 
@@ -346,15 +466,3 @@ export const getAccessibleSessions = async (req, res) => {
     return res.status(500).json({ message: "Internal server error" });
   }
 };
-
-
-
-/*
-- عرض جدول الحصص✔✔
--  الفديوهات هتكون من اليوتيوب  مشاهدة فيديو الحصة (مع التحقق من الدفع والشروط)
-- إإرسال إجابات الكويز داخل الفيديو
-- تسليم واجب
-- تسليم سكشن
-- عرض نتيجة (واجب/كويز/سكشن)
-
-*/ 
