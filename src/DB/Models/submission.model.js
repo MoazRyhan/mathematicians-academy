@@ -4,6 +4,8 @@ import { SUBMISSION_TYPE, SUBMISSION_REVIEW_STATUS } from "../../Constants/const
 const submissionSchema = new mongoose.Schema({
   student: { type: mongoose.Schema.Types.ObjectId, ref: 'Student', required: true },
   session: { type: mongoose.Schema.Types.ObjectId, ref: 'Session', required: true },
+  homework: { type: mongoose.Schema.Types.ObjectId, ref: 'Homework' }, // or
+  section: { type: mongoose.Schema.Types.ObjectId, ref: 'Section' }, // or
 
   submissionType: { 
     type: String, 
@@ -11,7 +13,11 @@ const submissionSchema = new mongoose.Schema({
     required: true 
   },
 
-  pdfSolution: { type: String },
+  // pdfSolution: {
+  //   images :{public_id : String,
+  //     secure_url : String },
+  //     folderId : String 
+  //   },
 
   answers: [{
     questionId: { type: mongoose.Schema.Types.ObjectId },

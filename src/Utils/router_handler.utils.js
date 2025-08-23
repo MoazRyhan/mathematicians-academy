@@ -3,7 +3,6 @@ import admin_controller from "../Modules/admin/admin.controller.js";
 import assistant_controller from "../Modules/assistant/assistant.controller.js";
 import auth_controller  from "../Modules/auth/auth.controller.js"
 import class_controller from "../Modules/class/class.controller.js";
-import exam_controller from "../Modules/exam/exam.controller.js";
 import notification_controller from "../Modules/notification/notification.controller.js";
 import parent_controller from "../Modules/parent/parent.controller.js";
 import payment_controller from "../Modules/payment/payment.controller.js";
@@ -32,7 +31,6 @@ const router_handler = async (app , express  ) => {
     app.use( "/REPORT" ,  REPORT_controller )
     app.use( "/payment" ,  payment_controller )
     app.use( "/notification" ,  notification_controller )
-    app.use( "/exam" ,  exam_controller )
     app.use( "/class" ,  class_controller )
     
     

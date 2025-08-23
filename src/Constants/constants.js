@@ -67,7 +67,7 @@ export const POINTS_TRANSACTION_TYPE = {
 export const SUBMISSION_TYPE = {
     HOMEWORK: 'homework',
     SECTION: 'section',
-  EXAM: 'exam'
+    EXAM: 'exam'
 };
 
 export const SUBMISSION_REVIEW_STATUS = {
@@ -121,7 +121,7 @@ export const SESSION_TIME = {
 // 📂 payment.enum.js
 
 export const PAYMENT_TYPE = {
-    CASH: 'cash',
+    CODE: 'code',
     VODAFONE_CASH: 'vodafone_cash' 
 }
 
@@ -137,4 +137,4 @@ export const PAYMENT_TYPE = {
 // for cloudnary
 export const ImageExtensions = ['image/jpg' , 'image/jpeg',  'image/png']
 export const VideoExtensions = [ ' video/mp4' , 'video/avi' ,'Video/mov' ]
-export const DocumentExtensions = [ 'application/pdf' , 'application/json' , 'application/javascript' ]
+export const PDFExtension = [ 'application/pdf' ]

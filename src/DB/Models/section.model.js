@@ -3,19 +3,32 @@ import mongoose from "mongoose";
 const sectionSchema = new mongoose.Schema({
   title: { type: String, required: true },
   description: { type: String },
-  materials: [{
-    type: String  // could be pdf links, docs, slides, etc.
-  }],
-  sessionDate: { type: Date, required: true },
-  duration: { type: Number, default: 60 }, // in minutes
+  materials: [{ type: String }], // ملفات أو روابط
 
-  // Relations
-  assignedBy: { type: mongoose.Schema.Types.ObjectId, ref: 'Teacher', required: true },
+
+  // 🔹 Whether the section is currently active
+  isActive: { type: Boolean, default: true },
+
+  // 🔹 section availability & deadline
+  availableFrom: { type: Date, required: true },
+  deadline: { type: Date, required: true },
+
   grade: { type: String, required: true },
   division: { type: String, required: true },
 
+
+    // Relations
+  session: { type: mongoose.Schema.Types.ObjectId, ref: 'Session', required: true }, // ✅ إضافة علاقة بالجلسة
+  assignedBy: { type: mongoose.Schema.Types.ObjectId, ref: 'Teacher', required: true },
+
+    // 🔹 Reference to student submissions
+  submissions: [{ type: mongoose.Schema.Types.ObjectId, ref: "Submission" }],
+
 }, { timestamps: true });
+
 
 const Section = mongoose.models.section || mongoose.model("Section", sectionSchema);
 
 export default Section;
+
+

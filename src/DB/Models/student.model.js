@@ -70,6 +70,8 @@ const studentSchema = new mongoose.Schema({
 
   redeemablePoints: { type: Number, default: 0 },
 
+  sessionCredits: { type: Number, default: 0 },
+
   sessionProgress: [{
   
     session: { type: mongoose.Schema.Types.ObjectId, ref: 'Session' },

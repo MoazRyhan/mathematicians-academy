@@ -13,6 +13,8 @@ import { SESSION_TIME , EXAM_TYPE, EXAM_QUESTION_TYPE, EXAM_TIME_TYPE  } from ".
 import Homework from "../../../DB/Models/homework.model.js";
 import Section from './../../../DB/Models/section.model.js';
 import Exam from "../../../DB/Models/exam.model.js";
+import PaymentCode from "../../../DB/Models/paymentCode.model.js";
+import crypto from "crypto";
 import mongoose from "mongoose";
 
 /**
@@ -1120,6 +1122,44 @@ export const delete_exam_service = async (req, res) => {
 
 
 
+
+
+export const generate_payment_codes_service = async (req, res) => {
+  try {
+    const { count, sessionsCount } = req.body;
+    const { _id: adminId } = req.login_user; // الأدمن اللي عامل الطلب
+
+    const adminRecord = await Admin.findOne({ user: _id });
+    if (!adminRecord) {
+      return res.status(403).json({ message: "❌ Only admins can delete exams" });
+    }
+    
+    if (!count || count < 1) {
+      return res.status(400).json({ message: "❌ count must be greater than 0" });
+    }
+
+    const codes = [];
+
+    for (let i = 0; i < count; i++) {
+      const code = crypto.randomBytes(4).toString("hex").toUpperCase(); // كود 8 حروف
+      const newCode = await PaymentCode.create({
+        code,
+        generatedBy: adminId,
+        sessionsCount: sessionsCount || 1
+      });
+      codes.push(newCode.code);
+    }
+
+    return res.status(201).json({
+      message: "✅ Payment codes generated successfully",
+      codes
+    });
+
+  } catch (error) {
+    console.error("❌ Error generating payment codes:", error);
+    return res.status(500).json({ message: "Internal server error" });
+  }
+};
 
 
 

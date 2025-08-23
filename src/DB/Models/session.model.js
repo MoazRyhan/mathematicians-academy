@@ -25,7 +25,12 @@ const sessionSchema = new mongoose.Schema({
     options: [{ type: String }],
     correctAnswer: { type: String, required: true },
     showAtTime: { type: Number, required: true }, 
-    passingGrade: { type: Number, default: 70 },
+    passingGrade: { type: Number, default: 0 },
+  }],
+  studentResults: [{
+    student: { type: mongoose.Schema.Types.ObjectId, ref: 'Student' },
+    score: { type: Number, default: 0 },
+    passed: { type: Boolean, default: false }
   }],
 
   homework: { type: mongoose.Schema.Types.ObjectId, ref: 'Homework' },

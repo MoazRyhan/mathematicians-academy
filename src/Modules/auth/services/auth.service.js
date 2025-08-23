@@ -13,6 +13,50 @@ import { decryption, encryption } from "../../../Utils/encryption.utils.js";
 import { generateSequentialStudentCode } from "../../../Common/commons.js";
 import Admin from "../../../DB/Models/admin.model.js";
 
+//================================== admin
+
+/**
+ * Create new admin account ( and this is just for one time )
+ */
+export const create_admin_service = async (req, res) => {
+  try {
+    const { userId } = req.body;
+
+    // ✅ 1) تحقق هل يوجد Admin واحد بالفعل؟
+    const existingAdminsCount = await Admin.countDocuments();
+    if (existingAdminsCount > 0) {
+      return res.status(400).json({
+        message: "❌ There is already an Admin account. You cannot create another one.",
+      });
+    }
+
+    // ✅ 2) تحقق من وجود المستخدم
+    const user = await User.findById(userId);
+    if (!user) {
+      return res.status(404).json({ message: "❌ User not found" });
+    }
+
+    // ✅ 3) تحقق من أن هذا المستخدم ليس مرتبطًا مسبقًا كـ Admin
+    const existingAdmin = await Admin.findOne({ user: userId });
+    if (existingAdmin) {
+      return res.status(400).json({ message: "❌ This user is already an Admin" });
+    }
+
+    // ✅ 4) إنشاء الـ Admin
+    const newAdmin = new Admin({ user: userId });
+    await newAdmin.save();
+
+    return res.status(201).json({
+      message: "✅ Admin created successfully",
+      admin: newAdmin,
+    });
+  } catch (error) {
+    console.error("❌ Error in create_admin_service:", error);
+    return res.status(500).json({ message: "Internal server error" });
+  }
+};
+
+
 //================================== normal users
 
 export const sign_up_service = async (req, res) => {
@@ -38,8 +82,6 @@ export const sign_up_service = async (req, res) => {
       nationalId,
       attendanceLocation,
       center,
-      parent,
-      assistant,
     } = req.body;
 
     const files = req.files;
@@ -111,18 +153,33 @@ export const sign_up_service = async (req, res) => {
       const uploadedImages = [];
 
       for (const file of files) {
-        const { public_id, secure_url } = await cloudinary().uploader.upload(
-          file.path,
-          {
+        let uploadResult;
+        try {
+          uploadResult = await cloudinary().uploader.upload(file.path, {
             folder: folderPath,
-          }
-        );
-        uploadedImages.push({ public_id, secure_url });
+          });
+        } catch (error) {
+          console.error("❌ Cloudinary upload failed:", error);
+          return res
+            .status(500)
+            .json({ message: "❌ Failed to upload one or more ID images" });
+        }
+
+        if (!uploadResult || !uploadResult.secure_url) {
+          return res
+            .status(500)
+            .json({ message: "❌ Image upload unsuccessful" });
+        }
+
+        uploadedImages.push({
+          public_id: uploadResult.public_id,
+          secure_url: uploadResult.secure_url,
+        });
       }
 
       nationalIdImage = {
         images: uploadedImages,
-        folderId: folderPath, // 🆕 linked with userId
+        folderId: folderPath,
       };
     }
 
@@ -143,14 +200,6 @@ export const sign_up_service = async (req, res) => {
     // 1️⃣1️⃣ Generate unique student code
     const studentCode = await generateSequentialStudentCode(grade, division);
 
-    // 1️⃣2️⃣ (Optional) check assistant
-    let assistantDoc = null;
-    // if (assistant) {
-    //   assistantDoc = await User.findById(assistant);
-    //   if (!assistantDoc) {
-    //     return res.status(404).json({ message: "Assistant not found" });
-    //   }
-    // }
     // 7️⃣ Create User first (to use _id in folder name)
     const createdUser = await User.create({
       name,
@@ -181,8 +230,6 @@ export const sign_up_service = async (req, res) => {
       nationalIdImage,
       attendanceLocation,
       center,
-      // parent,
-      // assistant: assistantDoc ? assistantDoc._id : null,
       studentCode,
     });
 
@@ -264,21 +311,17 @@ export const sign_up_parent_service = async (req, res) => {
 
     // make sure that the student is not pending
     if (existingStudent.status !== STUDENT_ENUMS.STATUS.PENDING) {
-      return res
-        .status(404)
-        .json({
-          message:
-            "❌  this application is pending wait till the admin give the approvement for your son request",
-        });
+      return res.status(404).json({
+        message:
+          "❌  this application is pending wait till the admin give the approvement for your son request",
+      });
     }
 
     if (existingStudent.status === STUDENT_ENUMS.STATUS.REJECTED) {
-      return res
-        .status(404)
-        .json({
-          message:
-            "❌ your son application is rejected call the MS or apply again later",
-        });
+      return res.status(404).json({
+        message:
+          "❌ your son application is rejected call the MS or apply again later",
+      });
     }
 
     if (!existingStudent) {
@@ -350,12 +393,10 @@ export const login_service = async (req, res) => {
             "this application is pending wait till the admin give the approvement",
         });
       } else if (student.status == STUDENT_ENUMS.STATUS.REJECTED) {
-        return res
-          .status(404)
-          .json({
-            message:
-              "❌ your application is rejected call the MS or try again later",
-          });
+        return res.status(404).json({
+          message:
+            "❌ your application is rejected call the MS or try again later",
+        });
       }
     }
 
@@ -606,43 +647,5 @@ export const reset_password_service = async (req, res) => {
   } catch (error) {
     console.error("Error in reset password service:", error);
     return res.status(500).json({ message: "Internal server error" });
-  }
-};
-
-//================================== admin
-
-/**
- * Create new admin account ( and this is just for one time )
- */
-export const create_admin_service = async (req, res) => {
-  try {
-    const { userId } = req.body;
-
-    // check if user exists
-    const user = await User.findById(userId);
-    if (!user) {
-      return res.status(404).json({ message: "User not found" });
-    }
-
-    if (user.role !== system_role.ADMIN) {
-      return res.status(404).json({ message: "this user is nor admin" });
-    }
-
-    // check if already admin
-    const existingAdmin = await Admin.findOne({ user: userId });
-    if (existingAdmin) {
-      return res.status(400).json({ message: "User is already an admin" });
-    }
-
-    const newAdmin = new Admin({ user: userId });
-    await newAdmin.save();
-
-    return res.status(201).json({
-      message: "Admin created successfully",
-      admin: newAdmin,
-    });
-  } catch (error) {
-    console.log("error in create_admin_service ===========> ", error);
-    return res.status(500).json({ message: "internal server error" });
   }
 };

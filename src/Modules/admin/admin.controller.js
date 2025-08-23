@@ -14,7 +14,7 @@ admin_controller.get("/get_admin_data", error_handler_middleware(admin_services.
 admin_controller.put("/updata_admin_data", error_handler_middleware(admin_services.update_admin_service));
 admin_controller.delete("/delete_admin_account", error_handler_middleware(admin_services.delete_admin_service));
 
-// add part
+// add_workers part 
 admin_controller.post("/add-accountant", error_handler_middleware(admin_services.add_accountant_service));
 admin_controller.post("/add-teacher", error_handler_middleware(admin_services.add_teacher_service));
 admin_controller.post("/add-supervisor", error_handler_middleware(admin_services.add_supervisor_service));
@@ -27,9 +27,16 @@ admin_controller.post(  "/add_session" , error_handler_middleware(admin_services
 admin_controller.put("/update_session/:sessionId", error_handler_middleware(admin_services.update_session_service));
 admin_controller.delete("/delete_session/:sessionId", error_handler_middleware(admin_services.delete_session_service));
 
-// test part
+// exam part
 admin_controller.post(  "/add_exam" , error_handler_middleware(admin_services.add_exam_service));
 admin_controller.put("/update_exam/:examId", error_handler_middleware(admin_services.update_exam_service));
 admin_controller.delete("/delete_exam/:examId", error_handler_middleware(admin_services.delete_exam_service));
+
+// generate_code part
+admin_controller.post(  "/generate-codes" , error_handler_middleware(admin_services.generate_payment_codes_service));
+
+
+
+
 
 export default admin_controller

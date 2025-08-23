@@ -12,7 +12,11 @@ parent_controller.use(authentication_middleware() , authorization_middleware([PA
 
 
 
-parent_controller.get( "/get_parent_data"  , error_handler_middleware(parent_services.get_parent_data  ))
+parent_controller.get( "/get_parent_data"  , error_handler_middleware(parent_services.get_parent_data_service  ))
+parent_controller.post(  "/updata_parent_data"   , error_handler_middleware(parent_services.update_parent_service)  ) 
+parent_controller.delete(  "/delete_parent_account"   , error_handler_middleware(parent_services.delete_parent_service)  ) 
+
+
 
 
 
