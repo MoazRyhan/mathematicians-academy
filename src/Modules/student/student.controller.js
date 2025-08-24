@@ -16,7 +16,7 @@ student_controller.delete(  "/delete_student_account"   , error_handler_middlewa
 
 // session
 student_controller.post(  "/make_session_payment"  , Multer_host( ImageExtensions ).array("VodeImage" , 1 )  , error_handler_middleware(student_service.make_payment_service)  ) 
-student_controller.get(  "/watch_session_video/:sessionId"   , error_handler_middleware(student_service.watch_session_video_service)  ) 
+student_controller.get(  "/open_session_video/:sessionId"   , error_handler_middleware(student_service.open_session_video_service)  ) 
 student_controller.get(  "/get_payment_history"   , error_handler_middleware(student_service.get_payment_history_service)  ) 
 student_controller.get("/get_sessions_list", error_handler_middleware(student_service.get_Student_Sessions_service)  ) 
 

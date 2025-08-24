@@ -9,6 +9,8 @@ const { ACCOUNTANT } = system_role
 
 
 accountant_controller.use(authentication_middleware() , authorization_middleware([ACCOUNTANT]) )
+
+
 accountant_controller.post( "/login"  , error_handler_middleware(accountant_services.login_service  ))
 
 

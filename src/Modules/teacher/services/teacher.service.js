@@ -366,6 +366,7 @@ export const delete_session_teacher_service = async (req, res) => {
 
 // =================👨‍🏫 Teacher Add  Exam
 
+// all kind of exams even monthly
 export const add_exam_service_teacher = async (req, res) => {
   try {
     const { _id } = req.login_user;
@@ -450,59 +451,6 @@ export const add_exam_service_teacher = async (req, res) => {
     });
   } catch (error) {
     console.error("❌ error in add_exam_service_teacher:", error);
-    return res.status(500).json({ message: "Internal server error" });
-  }
-};
-
-export const add_monthly_exam_teacher_service = async (req, res) => {
-  try {
-    const { _id } = req.login_user;
-    const {
-      title,
-      questions,
-      relatedSession,
-      timeType,
-      startTime,
-      endTime,
-      duration,
-      deadline,
-      allowFileUpload,
-      month,
-      
-    } = req.body;
-
-    // ✅ تحقق أن المستخدم Teacher
-    const teacher = await Teacher.findOne({ user: _id });
-    if (!teacher) {
-      return res.status(403).json({ message: "❌ Only teachers can add monthly exams" });
-    }
-
-    // ✅ لازم month يتبعت
-    if (!month) {
-      return res.status(400).json({ message: "❌ Month is required for monthly exams" });
-    }
-
-    const newExam = await Exam.create({
-      title,
-      examType: EXAM_TYPE.MONTHLY, // ✅ هنا ثابت
-      questions,
-      relatedSession,
-      timeType,
-      startTime,
-      endTime,
-      duration,
-      deadline,
-      createdBy: teacher._id, // teacher id
-      allowFileUpload,
-      month,
-    });
-
-    return res.status(201).json({
-      message: "✅ Monthly Exam created successfully by teacher",
-      exam: newExam,
-    });
-  } catch (error) {
-    console.error("❌ error in teacher_add_monthly_exam:", error);
     return res.status(500).json({ message: "Internal server error" });
   }
 };

@@ -138,6 +138,18 @@ export const sign_up_service = async (req, res) => {
     // 6️⃣ Hash password
     const hashedPassword = hashSync(password, +process.env.PASSWORD_SALT);
 
+    // 7️⃣ Create User first
+    const createdUser = await User.create({
+      name,
+      email,
+      password: hashedPassword,
+      role,
+      phoneNumber: await encryption({
+        value: phoneNumber,
+        secret_key: process.env.PHONE_ENCRYPTION_SECRET,
+      }),
+    });
+
     // 8️⃣ Prepare nationalIdImage (upload only for third secondary)
     let nationalIdImage = { images: [], folderId: null };
 
@@ -200,19 +212,7 @@ export const sign_up_service = async (req, res) => {
     // 1️⃣1️⃣ Generate unique student code
     const studentCode = await generateSequentialStudentCode(grade, division);
 
-    // 7️⃣ Create User first (to use _id in folder name)
-    const createdUser = await User.create({
-      name,
-      email,
-      password: hashedPassword,
-      role,
-      phoneNumber: await encryption({
-        value: phoneNumber,
-        secret_key: process.env.PHONE_ENCRYPTION_SECRET,
-      }),
-    });
-
-    // 1️⃣3️⃣ Create Student
+    // 1️⃣2️⃣ Create Student
     await Student.create({
       user: createdUser._id,
       fullName,
@@ -235,9 +235,7 @@ export const sign_up_service = async (req, res) => {
 
     // ✅ Success response
     return res.status(201).json({
-      message: assistantDoc
-        ? "Student registered successfully with assistant"
-        : "Student registered successfully (assistant not found or not provided)",
+      message: "Student registered successfully ",
       userId: createdUser._id,
       studentCode,
     });

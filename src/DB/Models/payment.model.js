@@ -22,7 +22,9 @@ const paymentSchema = new mongoose.Schema({
 
   isConfirmed: { type: Boolean, default: false },
 
-  confirmedBy: { type: mongoose.Schema.Types.ObjectId, ref: 'Accountant' },
+  confirmedByAccountant: { type: mongoose.Schema.Types.ObjectId, ref: 'Accountant' }, // or
+
+  confirmedByAdmin: { type: mongoose.Schema.Types.ObjectId, ref: 'Admin' }, // or
 
   relatedSession: { type: mongoose.Schema.Types.ObjectId, ref: 'Session' },
 

@@ -9,7 +9,7 @@ const { SUPERVISOR } = system_role
 
 
 supervisor_controller.use(authentication_middleware() , authorization_middleware([SUPERVISOR]) )
-supervisor_controller.post( "/login"  , error_handler_middleware(supervisor_services.login_service  ))
+supervisor_controller.post( "/login"  , error_handler_middleware(supervisor_services.login_service  )) // under test
 
 
 

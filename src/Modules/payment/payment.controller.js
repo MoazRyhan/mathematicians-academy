@@ -13,7 +13,7 @@ payment_controller.use(authentication_middleware() , authorization_middleware([A
 
 payment_controller.get( "/get_all_payments"  , error_handler_middleware(payment_services.get_AllPayments_service  ))
 payment_controller.patch( "/confirm_Payments/:paymentId"  , error_handler_middleware(payment_services.confirm_Payment_service  ))
-payment_controller.post( "/add_student_manual"  , error_handler_middleware(payment_services.add_Student_ToSession_service  ))
+payment_controller.post( "/add_student_manual"  , error_handler_middleware(payment_services.add_Student_ToSession_manual_service  ))
 
 
 

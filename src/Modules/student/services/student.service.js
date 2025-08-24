@@ -467,7 +467,7 @@ export const get_payment_history_service = async (req, res) => {
     const payments = await Payment.find({ student: student._id })
       .sort({ createdAt: -1 });
 
-      console.log(student._id);
+      // console.log(student._id);
       
 
     return res.status(200).json({
@@ -487,12 +487,10 @@ export const submit_Homework_Solution_service = async (req, res) => {
     const { sessionId } = req.params;
     const { _id: userId } = req.login_user;
 
-    // ✅ التحقق من وجود الملف
     if (!req.file) {
       return res.status(400).json({ message: "❌ PDF file is required" });
     }
 
-    // ✅ تحقق من نوع الملف (mimetype أو الامتداد)
     if (
       !PDFExtension.some(type => req.file.mimetype.startsWith(type)) &&
       req.file.originalname.split(".").pop().toLowerCase() !== "pdf"
@@ -500,23 +498,20 @@ export const submit_Homework_Solution_service = async (req, res) => {
       return res.status(400).json({ message: "❌ Only PDF files are allowed" });
     }
 
-    // ✅ جلب الطالب
     const student = await Student.findOne({ user: userId });
     if (!student) {
       return res.status(400).json({ message: "❌ This student does not exist" });
     }
 
-    // ✅ التحقق من وجود السيشن والواجب
     const sessionExist = await Session.findById(sessionId).populate("homework");
     if (!sessionExist || !sessionExist.homework) {
       return res.status(400).json({ message: "❌ No homework found for this session" });
     }
 
-    // ✅ رفع الملف على Cloudinary
-    const folderPath = `${process.env.FOLDER_NAME_CLOUDINARY}/User/Submissions/Homework/${student._id}`;
+    const folderPath = `${process.env.FOLDER_NAME_CLOUDINARY}/User/Submissions/Homework/${sessionExist?.homework?.title}`;
     const uploadResult = await cloudinary().uploader.upload(req.file.path, {
       folder: folderPath,
-      resource_type: "raw", // PDF
+      resource_type: "raw",
       format: "pdf"
     });
 
@@ -524,7 +519,6 @@ export const submit_Homework_Solution_service = async (req, res) => {
       return res.status(500).json({ message: "❌ Failed to upload file to Cloudinary" });
     }
 
-    // ✅ إنشاء Submission بعد نجاح الرفع
     const newSubmission = await Submission.create({
       student: student._id,
       session: sessionExist._id,
@@ -534,9 +528,27 @@ export const submit_Homework_Solution_service = async (req, res) => {
         secure_url: uploadResult.secure_url,
         folderId: folderPath
       },
-      homework : sessionExist.homework._id ,
+      homework: sessionExist.homework._id,
       deadline: sessionExist.homework?.deadline
     });
+
+    // ✅ تحديث sessionProgress في Student
+    const sessionProgressIndex = student.sessionProgress.findIndex(
+      sp => sp.session.toString() === sessionId
+    );
+
+    if (sessionProgressIndex !== -1) {
+      student.sessionProgress[sessionProgressIndex].isHomeworkSubmitted = true;
+      student.sessionProgress[sessionProgressIndex].submissions.push(newSubmission._id);
+    } else {
+      student.sessionProgress.push({
+        session: sessionId,
+        isHomeworkSubmitted: true,
+        submissions: [newSubmission._id]
+      });
+    }
+
+    await student.save();
 
     return res.status(201).json({
       message: "✅ Homework submitted successfully",
@@ -544,22 +556,21 @@ export const submit_Homework_Solution_service = async (req, res) => {
     });
 
   } catch (error) {
-    console.error("❌ Error in submitHomeworkSolution:================>", error);
+    console.error("❌ Error in submitHomeworkSolution:", error);
     return res.status(500).json({ message: "Internal server error" });
   }
 };
 
- export const upload_Section_Material_service = async (req, res) => {
+
+export const upload_Section_Material_service = async (req, res) => {
   try {
     const { sessionId } = req.params;
     const { _id: userId } = req.login_user;
 
-    // ✅ التحقق من وجود الملف
     if (!req.file) {
       return res.status(400).json({ message: "❌ PDF file is required" });
     }
 
-    // ✅ تحقق من نوع الملف (mimetype أو الامتداد)
     if (
       !PDFExtension.some(type => req.file.mimetype.startsWith(type)) &&
       req.file.originalname.split(".").pop().toLowerCase() !== "pdf"
@@ -567,25 +578,20 @@ export const submit_Homework_Solution_service = async (req, res) => {
       return res.status(400).json({ message: "❌ Only PDF files are allowed" });
     }
 
-    // ✅ جلب الطالب
     const student = await Student.findOne({ user: userId });
     if (!student) {
       return res.status(400).json({ message: "❌ This student does not exist" });
     }
 
-    // ✅ التحقق من وجود السيشن والواجب
     const sessionExist = await Session.findById(sessionId).populate("section");
     if (!sessionExist || !sessionExist.section) {
       return res.status(400).json({ message: "❌ No section found for this session" });
     }
-    console.log(sessionExist);
-    
 
-    // ✅ رفع الملف على Cloudinary
-    const folderPath = `${process.env.FOLDER_NAME_CLOUDINARY}/User/Submissions/Section/${student._id}`;
+    const folderPath = `${process.env.FOLDER_NAME_CLOUDINARY}/User/Submissions/Section/${sessionExist?.section?.title}`;
     const uploadResult = await cloudinary().uploader.upload(req.file.path, {
       folder: folderPath,
-      resource_type: "raw", // PDF
+      resource_type: "raw",
       format: "pdf"
     });
 
@@ -593,7 +599,6 @@ export const submit_Homework_Solution_service = async (req, res) => {
       return res.status(500).json({ message: "❌ Failed to upload file to Cloudinary" });
     }
 
-    // ✅ إنشاء Submission بعد نجاح الرفع
     const newSubmission = await Submission.create({
       student: student._id,
       session: sessionExist._id,
@@ -603,19 +608,38 @@ export const submit_Homework_Solution_service = async (req, res) => {
         secure_url: uploadResult.secure_url,
         folderId: folderPath
       },
-      section : sessionExist.section._id ,
+      section: sessionExist.section._id,
       deadline: sessionExist.section?.deadline
     });
+
+    // ✅ تحديث sessionProgress في Student
+    const sessionProgressIndex = student.sessionProgress.findIndex(
+      sp => sp.session.toString() === sessionId
+    );
+
+    if (sessionProgressIndex !== -1) {
+      student.sessionProgress[sessionProgressIndex].isSectionSubmitted = true;
+      student.sessionProgress[sessionProgressIndex].submissions.push(newSubmission._id);
+    } else {
+      student.sessionProgress.push({
+        session: sessionId,
+        isSectionSubmitted: true,
+        submissions: [newSubmission._id]
+      });
+    }
+
+    await student.save();
 
     return res.status(201).json({
       message: "✅ Section submitted successfully",
       submission: newSubmission
     });
   } catch (error) {
-    console.error("❌ Error in upload_Section_Material=================>", error);
+    console.error("❌ Error in upload_Section_Material:", error);
     return res.status(500).json({ message: "Internal server error" });
   }
 };
+
 
 export const submit_VideoQuiz_Answers_service = async (req, res) => {
   try {
@@ -627,11 +651,13 @@ export const submit_VideoQuiz_Answers_service = async (req, res) => {
       return res.status(400).json({ message: "❌ Answers must be provided as an array" });
     }
 
+    // ✅ جلب الطالب
     const student = await Student.findOne({ user: userId });
     if (!student) {
       return res.status(404).json({ message: "❌ Student not found" });
     }
 
+    // ✅ جلب السيشن
     const session = await Session.findById(sessionId);
     if (!session) {
       return res.status(404).json({ message: "❌ Session not found" });
@@ -641,6 +667,16 @@ export const submit_VideoQuiz_Answers_service = async (req, res) => {
       return res.status(400).json({ message: "❌ No video quizzes found for this session" });
     }
 
+    // ✅ تحقق إذا الطالب بالفعل حل الكويز في الـ sessionProgress
+    const progressIndex = student.sessionProgress.findIndex(
+      (p) => String(p.session) === String(sessionId)
+    );
+
+    if (progressIndex > -1 && student.sessionProgress[progressIndex].isQuizSubmitted) {
+      return res.status(400).json({ message: "❌ You have already submitted this quiz" });
+    }
+
+    // ✅ حساب الدرجة
     let totalQuestions = session.videoQuizzes.length;
     let correctCount = 0;
 
@@ -655,13 +691,16 @@ export const submit_VideoQuiz_Answers_service = async (req, res) => {
     const score = (correctCount / totalQuestions) * 100;
     const passed = score >= 70;
 
-    // ✅ لو عايز تحدث passingGrade في كل سؤال
+    // ✅ لو عايز تحدث passingGrade في كل سؤال (اختياري)
     session.videoQuizzes.forEach(q => {
       q.passingGrade = score;
     });
 
-    // ✅ تحديث أو إضافة نتيجة الطالب في studentResults
-    const existingResultIndex = session.studentResults.findIndex(r => String(r.student) === String(student._id));
+    // ✅ تحديث studentResults في الـ Session
+    const existingResultIndex = session.studentResults.findIndex(
+      r => String(r.student) === String(student._id)
+    );
+
     if (existingResultIndex > -1) {
       session.studentResults[existingResultIndex].score = score;
       session.studentResults[existingResultIndex].passed = passed;
@@ -671,6 +710,19 @@ export const submit_VideoQuiz_Answers_service = async (req, res) => {
 
     await session.save();
 
+    // ✅ تحديث sessionProgress في Student
+    if (progressIndex > -1) {
+      student.sessionProgress[progressIndex].isQuizSubmitted = true;
+    } else {
+      student.sessionProgress.push({
+        session: sessionId,
+        isQuizSubmitted: true
+      });
+    }
+
+    await student.save();
+
+    // ✅ رسالة النتيجة
     if (!passed) {
       return res.status(200).json({
         message: "❌ You scored below 70%. Please rewatch the video and try again.",
@@ -693,14 +745,15 @@ export const submit_VideoQuiz_Answers_service = async (req, res) => {
 
 
 
+
 // any thing below is under testing
 //===========================================
 
 
-
-// need to check the homework and section and exam // and if the session depend on other one //
+// ( wait for ============ ahmed ============= )
+// need to check  if the session depend on other one in ( prerequisites ) and if yes check if the student in the ( sessionProgress )  in the student model make the isSectionSubmitted  and isHomeworkSubmitted is true  if exist
 //  and add points id the student finish the questions quezz and the video 
-export const watch_session_video_service = async (req, res) => {
+export const open_session_video_service = async (req, res) => {
   try {
     const { _id: userId } = req.login_user;
     const { sessionId } = req.params;
@@ -710,35 +763,33 @@ export const watch_session_video_service = async (req, res) => {
       return res.status(404).json({ message: "❌ Student not found" });
     }
 
-    const session = await Session.findById(sessionId);
+    const session = await Session.findById(sessionId)
+      .populate("prerequisites homework section exam studentResults.student");
     if (!session) {
       return res.status(404).json({ message: "❌ Session not found" });
     }
 
-    // ✅ التحقق من division و grade
+    // // ✅ التحقق من division و grade
     if (student.division !== session.division || student.grade !== session.grade) {
       return res.status(403).json({ message: "❌ You are not allowed to watch this session" });
     }
 
-    // ✅ تحقق لو الطالب عنده السيشن بالفعل
-    const existingProgress = student.sessionProgress.find(
-      (p) => p.session.toString() === sessionId && p.isPaid === true
-    );
+    // ✅ التحقق من الـ prerequisites
+    if (session.prerequisites && session.prerequisites.length > 0) {
+      const unmetPrerequisites = session.prerequisites.filter(prereqId => {
+        const progress = student.sessionProgress.find(
+          sp => sp.session.toString() === prereqId.toString()
+        );
+        return !progress ||
+               !progress.isSectionSubmitted ||
+               !progress.isHomeworkSubmitted ||
+               !progress.isQuizSubmitted;
+      });
 
-    if (existingProgress) {
-      if (existingProgress.expirationDate > new Date()) {
-        // ✅ السيشن لسه صالحة
-        return res.status(200).json({
-          message: "✅ Session already unlocked",
-          remainingCredits: student.sessionCredits,
-          expiresAt: existingProgress.expirationDate,
-          session
-        });
-      } else {
-        // ❌ السيشن انتهت صلاحيتها
+      if (unmetPrerequisites.length > 0) {
         return res.status(403).json({
-          message: "❌ Session access expired after 7 days, sorry you can call the teacher",
-          expiredAt: existingProgress.expirationDate
+          message: "❌ يجب عليك إنهاء كل الجلسات المطلوبة قبل فتح هذه الجلسة (تسليم السيكشن، الواجب، والاختبار)",
+          unmetPrerequisites
         });
       }
     }
@@ -771,7 +822,7 @@ export const watch_session_video_service = async (req, res) => {
     });
 
   } catch (error) {
-    console.error("❌ Error in watch_session_video_service============>", error);
+    console.error("❌ Error in open_session_video_service============>", error);
     return res.status(500).json({ message: "Internal server error" });
   }
 };

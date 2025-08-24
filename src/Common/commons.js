@@ -1,4 +1,7 @@
 import { STUDENT_ENUMS } from "../Constants/constants.js";
+import Exam from "../DB/Models/exam.model.js";
+import Homework from "../DB/Models/homework.model.js";
+import Section from "../DB/Models/section.model.js";
 import Student from "../DB/Models/student.model.js";
 
 // Helper function: Generate sequential unique student code
@@ -51,3 +54,6 @@ export const generateSequentialStudentCode = async (grade, division) => {
     throw new Error(`Failed to generate student code: ${error.message}`);
   }
 };
+
+
+

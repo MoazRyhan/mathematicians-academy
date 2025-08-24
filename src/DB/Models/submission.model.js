@@ -13,11 +13,11 @@ const submissionSchema = new mongoose.Schema({
     required: true 
   },
 
-  // pdfSolution: {
-  //   images :{public_id : String,
-  //     secure_url : String },
-  //     folderId : String 
-  //   },
+  pdfSolution: {
+    images :{public_id : String,
+      secure_url : String },
+      folderId : String 
+    },
 
   answers: [{
     questionId: { type: mongoose.Schema.Types.ObjectId },

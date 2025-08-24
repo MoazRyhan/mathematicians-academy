@@ -36,8 +36,7 @@ teacher_controller.post("/section/:sessionId", error_handler_middleware(teacher_
 // exam part 
 teacher_controller.post(  "/add_exam_T" , error_handler_middleware(teacher_services.add_exam_service_teacher));
 teacher_controller.put("/update_exam_T/:examId", error_handler_middleware(teacher_services.update_exam_service_teacher));
-teacher_controller.delete("/delete_exam_T/:examId", error_handler_middleware(teacher_services.delete_exam_service_teacher));
-teacher_controller.post("/monthlyExam_T", error_handler_middleware(teacher_services.add_monthly_exam_teacher_service)  ) 
+teacher_controller.delete("/delete_exam_T/:examId", error_handler_middleware(teacher_services.delete_exam_service_teacher)); 
 
 
 

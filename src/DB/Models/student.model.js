@@ -84,8 +84,6 @@ const studentSchema = new mongoose.Schema({
   
     watchedVideoProgress: { type: Number, default: 0 }, // From 0 to 100
   
-    submissions: [{ type: mongoose.Schema.Types.ObjectId, ref: 'Submission' }],
-  
     isSectionSubmitted: { type: Boolean, default: false },
   
     isHomeworkSubmitted: { type: Boolean, default: false },
