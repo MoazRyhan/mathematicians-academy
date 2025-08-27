@@ -6,6 +6,7 @@ const submissionSchema = new mongoose.Schema({
   session: { type: mongoose.Schema.Types.ObjectId, ref: 'Session', required: true },
   homework: { type: mongoose.Schema.Types.ObjectId, ref: 'Homework' }, // or
   section: { type: mongoose.Schema.Types.ObjectId, ref: 'Section' }, // or
+  exam: { type: mongoose.Schema.Types.ObjectId, ref: 'Exam' }, // or
 
   submissionType: { 
     type: String, 
@@ -13,8 +14,8 @@ const submissionSchema = new mongoose.Schema({
     required: true 
   },
 
-  pdfSolution: {
-    images :{public_id : String,
+    pdfSolution: {
+    files :{public_id : String,
       secure_url : String },
       folderId : String 
     },

@@ -67,7 +67,8 @@ export const POINTS_TRANSACTION_TYPE = {
 export const SUBMISSION_TYPE = {
     HOMEWORK: 'homework',
     SECTION: 'section',
-    EXAM: 'exam'
+    EXAM: 'exam',
+    MONTHLY_EXAM: 'monthly_exam',
 };
 
 export const SUBMISSION_REVIEW_STATUS = {
@@ -126,9 +127,29 @@ export const PAYMENT_TYPE = {
 }
 
 
+// 📂 group & CorrectionRequest & CorrectionReview & ASSISTANT_REQUEST.enum.js
 
+export const GROUP_STATUS = {
+    ACTIVE: 'active',
+    COMPLETED : 'completed' 
+}
 
+export const CORRECTION_REQUEST_STATUS = {
+    PENDING: 'pending',
+    REVIEWED: 'reviewed' 
+}
 
+export const CORRECTION_REVIEW_STATUS = {
+    PENDING: 'pending',
+    APPROVED: 'approved',
+    REJECTED: 'rejected'
+};
+
+export const ASSISTANT_REQUEST_STATUS = {
+    PENDING: 'pending',
+    APPROVED: 'approved',
+    REJECTED: 'rejected'
+};
 
 
 

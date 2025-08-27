@@ -11,6 +11,7 @@ import { PDFExtension, STUDENT_ENUMS, SUBMISSION_TYPE } from "../../../Constants
 import { PAYMENT_TYPE } from "../../../Constants/constants.js";
 import PaymentCode from "../../../DB/Models/paymentCode.model.js";
 import Section from "../../../DB/Models/section.model.js";
+import Exam from "../../../DB/Models/exam.model.js";
 
 
 
@@ -539,12 +540,12 @@ export const submit_Homework_Solution_service = async (req, res) => {
 
     if (sessionProgressIndex !== -1) {
       student.sessionProgress[sessionProgressIndex].isHomeworkSubmitted = true;
-      student.sessionProgress[sessionProgressIndex].submissions.push(newSubmission._id);
+      student.sessionProgress[sessionProgressIndex].homeworkSubmission.push(newSubmission._id);
     } else {
       student.sessionProgress.push({
         session: sessionId,
         isHomeworkSubmitted: true,
-        submissions: [newSubmission._id]
+        homeworkSubmission: [newSubmission._id]
       });
     }
 
@@ -619,12 +620,12 @@ export const upload_Section_Material_service = async (req, res) => {
 
     if (sessionProgressIndex !== -1) {
       student.sessionProgress[sessionProgressIndex].isSectionSubmitted = true;
-      student.sessionProgress[sessionProgressIndex].submissions.push(newSubmission._id);
+      student.sessionProgress[sessionProgressIndex].sectionSubmission.push(newSubmission._id);
     } else {
       student.sessionProgress.push({
         session: sessionId,
         isSectionSubmitted: true,
-        submissions: [newSubmission._id]
+        sectionSubmission: [newSubmission._id]
       });
     }
 
@@ -752,7 +753,7 @@ export const submit_VideoQuiz_Answers_service = async (req, res) => {
 
 // ( wait for ============ ahmed ============= )
 // need to check  if the session depend on other one in ( prerequisites ) and if yes check if the student in the ( sessionProgress )  in the student model make the isSectionSubmitted  and isHomeworkSubmitted is true  if exist
-//  and add points id the student finish the questions quezz and the video 
+//  and add points id the student finish the questions quiz and the video 
 export const open_session_video_service = async (req, res) => {
   try {
     const { _id: userId } = req.login_user;
@@ -826,16 +827,179 @@ export const open_session_video_service = async (req, res) => {
     return res.status(500).json({ message: "Internal server error" });
   }
 };
+export const submit_monthly_exam_service = async (req, res) => {
+  try {
+    const { _id: userId } = req.login_user;
+    const { examId } = req.params;
+    const { answers } = req.body; // answers = [{questionId, answer}]
+
+    const student = await Student.findOne({ user: userId });
+    if (!student) {
+      return res.status(404).json({ message: "❌ Student not found" });
+    }
+
+    const exam = await Exam.findById(examId)
+    if (!exam || !exam.isActive) {
+      return res.status(404).json({ message: "❌ Exam not found or inactive" });
+    }
+
+    // ✅ تحقق إن الامتحان الشهري للطالب (حسب الجريد والديڤيجن)
+    if (exam?.grade !== student.grade || exam?.division !== student.division) {
+      return res.status(403).json({ message: "❌ You are not allowed to take this exam" });
+    }
+
+    // ✅ حساب الدرجة
+    let score = 0;
+    exam.questions.forEach(q => {
+      const studentAnswer = answers.find(a => a.questionId === q._id.toString());
+      if (studentAnswer && studentAnswer.answer === q.correctAnswer) {
+        score += q.points;
+      }
+    });
+
+    // ✅ احفظ النتيجة في studentResults (لو عايز)
+    exam.studentResults.push({ student: student._id, score, passed: score >= passingGrade });
+
+    await exam.save();
+
+    return res.status(200).json({
+      message: "✅ Exam submitted successfully",
+      score,
+      totalPoints: exam.questions.reduce((sum, q) => sum + q.points, 0)
+    });
+
+  } catch (error) {
+    console.error("❌ Error in submit_monthly_exam_service============>", error);
+    return res.status(500).json({ message: "Internal server error" });
+  }
+};
 
 
 
 
 
+export const getSectionStatus = async (req, res) => {
+  try {
+    const { sessionId } = req.params;
+    const { _id: userId } = req.login_user;
+
+    // ✅ هات الطالب المرتبط باليوزر
+    const student = await Student.findOne({ user: userId });
+    if (!student) {
+      return res.status(404).json({ message: "❌ Student not found" });
+    }
+
+    const session = await Session.findById(sessionId).populate("section");
+    if (!session || !session.section) {
+      return res.status(404).json({ message: "❌ Section not found for this session" });
+    }
+
+    const section = await Section.findById(session.section).populate("submissions");
+    const submitted = section.submissions.some(sub => sub.student.toString() === student._id.toString());
+
+    return res.status(200).json({
+      message: "✅ Section status fetched successfully",
+      sessionId,
+      sectionId: section._id,
+      isSectionSubmitted: submitted
+    });
+  } catch (error) {
+    console.error("❌ error in getSectionStatus:", error);
+    return res.status(500).json({ message: "Internal server error" });
+  }
+};
+export const getHomeworkStatus = async (req, res) => {
+  try {
+    const { sessionId } = req.params;
+    const { _id: userId } = req.login_user;
+
+    const student = await Student.findOne({ user: userId });
+    if (!student) {
+      return res.status(404).json({ message: "❌ Student not found" });
+    }
+
+    const session = await Session.findById(sessionId).populate("homework");
+    if (!session || !session.homework) {
+      return res.status(404).json({ message: "❌ Homework not found for this session" });
+    }
+
+    const homework = await Homework.findById(session.homework).populate("submissions");
+    const submitted = homework.submissions?.some(sub => sub.student.toString() === student._id.toString());
+
+    return res.status(200).json({
+      message: "✅ Homework status fetched successfully",
+      sessionId,
+      homeworkId: homework._id,
+      isHomeworkSubmitted: submitted || false
+    });
+  } catch (error) {
+    console.error("❌ error in getHomeworkStatus:", error);
+    return res.status(500).json({ message: "Internal server error" });
+  }
+};
+ export const getQuizStatus = async (req, res) => {
+  try {
+    const { sessionId } = req.params;
+    const { _id: userId } = req.login_user;
+
+    const student = await Student.findOne({ user: userId });
+    if (!student) {
+      return res.status(404).json({ message: "❌ Student not found" });
+    }
+
+    const session = await Session.findById(sessionId);
+    if (!session) {
+      return res.status(404).json({ message: "❌ Session not found" });
+    }
+
+    const quizResult = session.studentResults.find(result => result.student.toString() === student._id.toString());
+
+    return res.status(200).json({
+      message: "✅ Quiz status fetched successfully",
+      sessionId,
+      isQuizSubmitted: !!quizResult,
+      score: quizResult ? quizResult.score : null,
+      passed: quizResult ? quizResult.passed : null
+    });
+  } catch (error) {
+    console.error("❌ error in getQuizStatus:", error);
+    return res.status(500).json({ message: "Internal server error" });
+  }
+};
 
 
 
 
 
+export const get_monthly_exams_service = async (req, res) => {
+  try {
+    const { _id: userId } = req.login_user;
 
+    const student = await Student.findOne({ user: userId });
+    if (!student) {
+      return res.status(404).json({ message: "❌ Student not found" });
+    }
 
+    // ✅ هجيب الامتحانات الشهرية المرتبطة بجريد الطالب )
+    const exams = await Exam.find({
+      isActive: true,
+      month: { $exists: true, $ne: null },
+    })
+
+    // ✅ فلترة عشان يجيب الامتحانات الخاصة بجريد وديفيجن الطالب
+    const filteredExams = exams.filter(exam =>
+      exam?.grade === student.grade &&
+      exam?.division === student.division
+    );
+
+    return res.status(200).json({
+      message: "✅ Monthly exams fetched successfully",
+      exams: filteredExams
+    });
+
+  } catch (error) {
+    console.error("❌ Error in get_monthly_exams_service============>", error);
+    return res.status(500).json({ message: "Internal server error" });
+  }
+};
 

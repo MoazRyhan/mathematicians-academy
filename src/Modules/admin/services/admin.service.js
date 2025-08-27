@@ -947,11 +947,13 @@ export const add_exam_service = async (req, res) => {
       createdBy,
       allowFileUpload,
       month,
-      isActive
+      isActive ,
+      grade ,
+      division
     } = req.body;
 
     // ✅ التحقق من الحقول الأساسية
-    if (!createdBy || !relatedSession || !timeType || !examType || !title || !questions) {
+    if (!relatedSession || !timeType || !examType || !title || !questions || !grade || division ) {
       return res.status(400).json({ message: "Please fill in all required fields" });
     }
 
@@ -1013,7 +1015,9 @@ export const add_exam_service = async (req, res) => {
       createdBy,
       allowFileUpload,
       month,
-      isActive
+      isActive ,
+      grade , 
+      division
     });
 
     return res.status(201).json({
@@ -1117,12 +1121,6 @@ export const delete_exam_service = async (req, res) => {
 };
 
 
-// any thing below is under testing
-//===========================================
-
-
-
-
 
 export const generate_payment_codes_service = async (req, res) => {
   try {
@@ -1163,70 +1161,113 @@ export const generate_payment_codes_service = async (req, res) => {
 
 
 
+// any thing below is under testing
+//===========================================
+
+
+// ✅ إضافة طالب إلى Assistant
+export const add_Student_To_Assistant_service = async (req, res) => {
+  try {
+    const { assistantId, studentId } = req.body;
+    const { _id } = req.login_user;
+
+    // ✅ check admin
+    const adminRecord = await Admin.findOne({ user: _id });
+    if (!adminRecord) {
+      return res.status(403).json({ message: "❌ Only admins can add exams" });
+    }
+
+    if (!assistantId || !studentId) {
+      return res.status(400).json({ message: "assistantId and studentId are required" });
+    }
+
+    // ✅ تحقق من وجود Assistant
+    const assistant = await Assistant.findById(assistantId);
+    if (!assistant) {
+      return res.status(404).json({ message: "Assistant not found" });
+    }
+
+    // ✅ تحقق من وجود الطالب
+    const student = await Student.findById(studentId);
+    if (!student) {
+      return res.status(404).json({ message: "Student not found" });
+    }
+
+    // ✅ لو الطالب موجود بالفعل في القائمة
+    if (assistant.students.includes(studentId)) {
+      return res.status(400).json({ message: "Student is already assigned to this assistant" });
+    }
+
+    // ✅ أضف الطالب
+    assistant.students.push(studentId);
+    await assistant.save();
+
+    // ✅ أضف الـ Assistant للطالب في الـ student schema
+    student.assistant = assistant._id;
+    student.assistantName = assistant.user; // لو عايز تخزن اسم الـ assistant
+    await student.save();
+
+    return res.status(200).json({
+      message: "✅ Student added to Assistant successfully",
+      assistant
+    });
+  } catch (error) {
+    console.error("❌ Error in addStudentToAssistant:", error);
+    return res.status(500).json({ message: "Internal server error" });
+  }
+};
+
+// ✅ حذف طالب من Assistant
+export const remove_Student_From_Assistant_service = async (req, res) => {
+  try {
+    const { assistantId, studentId } = req.body;
+    const { _id } = req.login_user;
+
+    // ✅ check admin
+    const adminRecord = await Admin.findOne({ user: _id });
+    if (!adminRecord) {
+      return res.status(403).json({ message: "❌ Only admins can add exams" });
+    }
+
+    if (!assistantId || !studentId) {
+      return res.status(400).json({ message: "assistantId and studentId are required" });
+    }
+
+    const assistant = await Assistant.findById(assistantId);
+    if (!assistant) {
+      return res.status(404).json({ message: "Assistant not found" });
+    }
+
+    const student = await Student.findById(studentId);
+    if (!student) {
+      return res.status(404).json({ message: "Student not found" });
+    }
+
+    // ✅ لو الطالب مش موجود في القائمة
+    if (!assistant.students.includes(studentId)) {
+      return res.status(400).json({ message: "Student is not assigned to this assistant" });
+    }
+
+    // ✅ احذف الطالب من قائمة الـ students في الـ Assistant
+    assistant.students = assistant.students.filter(id => id.toString() !== studentId);
+    await assistant.save();
+
+    // ✅ امسح المرجعية من الطالب
+    student.assistant = null;
+    student.assistantName = null;
+    await student.save();
+
+    return res.status(200).json({
+      message: "✅ Student removed from Assistant successfully",
+      assistant
+    });
+  } catch (error) {
+    console.error("❌ Error in removeStudentFromAssistant:", error);
+    return res.status(500).json({ message: "Internal server error" });
+  }
+};
 
 
 
 
 
-
-/***
- * 
- * 
-
-DELETE /admin/remove-user/:userId → Remove any user (student, teacher, supervisor, assistant, accountant).
-
-
-
-
-📚 Sessions & Exams
-
-POST /admin/create-session → Create a new session.
-
-PUT /admin/update-session/:sessionId → Update session.
-
-DELETE /admin/delete-session/:sessionId → Delete session.
-
-POST /admin/create-exam → Create exam.
-
-PUT /admin/update-exam/:examId → Update exam.
-
-DELETE /admin/delete-exam/:examId → Delete exam.
-
-POST /admin/open-session/:sessionId → Manually open a session for all students.
-
-
-
-🎯 Points & Attendance
-
-POST /admin/add-points → Add points to student.
-
-POST /admin/deduct-points → Deduct points from student.
-
-POST /admin/mark-attendance/qr → Mark attendance via QR.
-
-POST /admin/mark-attendance/manual → Mark attendance manually.
-
-
-
-  this for reports
-📊 Statistics & Dashboard
-
-GET /admin/statistics → Get overall statistics (students, teachers, payments, etc).
-
-GET /admin/user-stats/:userId → Get detailed stats for a specific user.
-
-GET /admin/finance-stats → Get accountants & payments reports.
-
-
-
-
-
-🔄 Assignments (Distributions)
-
-POST /admin/assign-student → Assign student to assistant/supervisor.
-
-POST /admin/reassign-student → Move student to another assistant/supervisor.
-
-POST /admin/assign-assistant → Assign assistant to supervisor.
-
-POST /admin/reassign-assistant → Move assistant to another supervisor.*/

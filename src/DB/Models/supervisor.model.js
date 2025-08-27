@@ -8,11 +8,13 @@ const supervisorSchema = new mongoose.Schema({
   
   teacher: { type: mongoose.Schema.Types.ObjectId, ref: 'Teacher', required: true },
   
-  
   assistants: [{ type: mongoose.Schema.Types.ObjectId, ref: 'Assistant' }],
   
-  
   correctionReviews: [{ type: mongoose.Schema.Types.ObjectId, ref: 'CorrectionReview' }],
+
+  correctionRequest: [{ type: mongoose.Schema.Types.ObjectId, ref: 'CorrectionRequest' }],
+
+  assistantRequest: [{ type: mongoose.Schema.Types.ObjectId, ref: 'AssistantRequest' }], // ✅ جديد
   
 }, { timestamps: true });
 

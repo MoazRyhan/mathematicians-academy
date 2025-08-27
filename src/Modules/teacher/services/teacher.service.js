@@ -5,7 +5,7 @@ import Session from "../../../DB/Models/session.model.js";
 import Teacher from "./../../../DB/Models/teacher.model.js";
 import Homework from "../../../DB/Models/homework.model.js";
 import Section from "../../../DB/Models/section.model.js";
-import { SESSION_TIME, STUDENT_ENUMS ,EXAM_TYPE, EXAM_QUESTION_TYPE  } from "../../../Constants/constants.js";
+import { SESSION_TIME, STUDENT_ENUMS ,EXAM_TYPE, EXAM_QUESTION_TYPE, EXAM_TIME_TYPE  } from "../../../Constants/constants.js";
 import Exam from "../../../DB/Models/exam.model.js";
 import mongoose from "mongoose";
 
@@ -67,7 +67,7 @@ export const get_teacher_data_service = async (req, res) => {
 
 // ======================== add delete update things
 
-export const add_Session_teacher_service = async (req, res) => {
+export const add_Session_teacher_service_teacher = async (req, res) => {
   try {
     const {
       title,
@@ -197,7 +197,7 @@ export const add_Session_teacher_service = async (req, res) => {
   }
 };
 
-export const update_session_teacher_service = async (req, res) => {
+export const update_session_teacher_service_teacher  = async (req, res) => {
   try {
     const { _id } = req.login_user; // المدرس اللي عامل لوجين
     const { sessionId } = req.params;
@@ -329,7 +329,7 @@ export const update_session_teacher_service = async (req, res) => {
   }
 };
 
-export const delete_session_teacher_service = async (req, res) => {
+export const delete_session_teacher_service_teacher  = async (req, res) => {
   try {
     const { _id } = req.login_user;
     const { sessionId } = req.params;
@@ -382,11 +382,13 @@ export const add_exam_service_teacher = async (req, res) => {
       deadline,
       allowFileUpload,
       month,
-      isActive
+      isActive ,
+      division ,
+      grade
     } = req.body;
 
     // ✅ التحقق من الحقول الأساسية
-    if (!relatedSession || !timeType || !examType || !title || !questions) {
+    if (!relatedSession || !timeType || !examType || !title || !questions || !grade || division ) {
       return res.status(400).json({ message: "Please fill in all required fields" });
     }
 
@@ -442,7 +444,9 @@ export const add_exam_service_teacher = async (req, res) => {
       createdBy: teacherRecord._id,
       allowFileUpload,
       month,
-      isActive
+      isActive ,
+      grade ,
+      division
     });
 
     return res.status(201).json({

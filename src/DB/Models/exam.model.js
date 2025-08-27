@@ -20,21 +20,31 @@ const examSchema = new mongoose.Schema({
       correctAnswer: { type: String },
     }],
 
-    points: { type: Number, required: true },
+    points: { type: Number, required: true }, // for all
   }],
 
-  relatedSession: { type: mongoose.Schema.Types.ObjectId, ref: 'Session' },
-
+  
   timeType: { type: String, enum: Object.values(EXAM_TIME_TYPE), required: true },
   startTime: { type: Date },
   endTime: { type: Date },
   duration: { type: Number },
   deadline: { type: Date },
 
+  grade: { type: String, required: true }, // now
+  division: { type: String, required: true },  // now
+  
+  relatedSession: { type: mongoose.Schema.Types.ObjectId, ref: 'Session' },
   createdBy: { type: mongoose.Schema.Types.ObjectId, ref: 'Teacher', required: true },
 
-  // 🔹 إضافات
-  allowFileUpload: { type: Boolean, default: true },
+  // 🔹 Reference to student submissions
+  submissions: [{ type: mongoose.Schema.Types.ObjectId, ref: "Submission" }],  // now
+  
+  pdfSolution: {
+    files :{public_id : String,
+      secure_url : String },
+      folderId : String 
+    },
+
   isActive: { type: Boolean, default: true },
 
   // 🟢 إضافة عشان الامتحانات الشهرية

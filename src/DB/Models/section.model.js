@@ -3,7 +3,13 @@ import mongoose from "mongoose";
 const sectionSchema = new mongoose.Schema({
   title: { type: String, required: true },
   description: { type: String },
-  materials: [{ type: String }], // ملفات أو روابط
+
+  // 🔹 Homework resources (e.g., PDF, Docs, etc.)
+  materials: {
+    files :{public_id : String,
+      secure_url : String },
+      folderId : String 
+    }, // ملفات أو روابط
 
 
   // 🔹 Whether the section is currently active

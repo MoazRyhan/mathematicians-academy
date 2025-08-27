@@ -19,10 +19,14 @@ teacher_controller.post(  "/updata_teacher_data"   , error_handler_middleware(te
 teacher_controller.delete(  "/delete_teacher_account"   , error_handler_middleware(teacher_services.delete_teacher_service)  ) 
 
 // session part
-teacher_controller.post("/add_session"   , error_handler_middleware(teacher_services.add_Session_teacher_service)  ) 
-teacher_controller.put("/update_session/:sessionId", error_handler_middleware(teacher_services.update_session_teacher_service)  ) 
-teacher_controller.delete("/delete_session/:sessionId", error_handler_middleware(teacher_services.delete_session_teacher_service)  ) 
+teacher_controller.post("/add_session"   , error_handler_middleware(teacher_services.add_Session_teacher_service_teacher )  ) 
+teacher_controller.put("/update_session/:sessionId", error_handler_middleware(teacher_services.update_session_teacher_service_teacher )  ) 
+teacher_controller.delete("/delete_session/:sessionId", error_handler_middleware(teacher_services.delete_session_teacher_service_teacher )  ) 
 
+// exam part 
+teacher_controller.post(  "/add_exam_T" , error_handler_middleware(teacher_services.add_exam_service_teacher));
+teacher_controller.put("/update_exam_T/:examId", error_handler_middleware(teacher_services.update_exam_service_teacher));
+teacher_controller.delete("/delete_exam_T/:examId", error_handler_middleware(teacher_services.delete_exam_service_teacher)); 
 
 // homework  part
 teacher_controller.post("/homework/:sessionId", error_handler_middleware(teacher_services.add_Homework_ToSession_service)  ) 
@@ -33,10 +37,7 @@ teacher_controller.post("/quiz/:sessionId"  , error_handler_middleware(teacher_s
 // section part
 teacher_controller.post("/section/:sessionId", error_handler_middleware(teacher_services.add_Section_ToSession_service)  ) 
 
-// exam part 
-teacher_controller.post(  "/add_exam_T" , error_handler_middleware(teacher_services.add_exam_service_teacher));
-teacher_controller.put("/update_exam_T/:examId", error_handler_middleware(teacher_services.update_exam_service_teacher));
-teacher_controller.delete("/delete_exam_T/:examId", error_handler_middleware(teacher_services.delete_exam_service_teacher)); 
+
 
 
 

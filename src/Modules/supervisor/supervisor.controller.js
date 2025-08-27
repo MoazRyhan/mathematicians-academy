@@ -9,9 +9,23 @@ const { SUPERVISOR } = system_role
 
 
 supervisor_controller.use(authentication_middleware() , authorization_middleware([SUPERVISOR]) )
-supervisor_controller.post( "/login"  , error_handler_middleware(supervisor_services.login_service  )) // under test
+
+// crud
+supervisor_controller.get("/get_supervisor_data", error_handler_middleware( supervisor_services.get_supervisor_data_service));
 
 
+
+// ✅ عرض المساعدين التابعين له
+supervisor_controller.get("/assistants", error_handler_middleware( supervisor_services.getSupervisorAssistants_service));
+
+// ✅ عرض التصحيحات
+supervisor_controller.get("/correction-requests", error_handler_middleware( supervisor_services.getCorrectionRequests_service));
+
+// ✅ اعتماد أو رفض التصحيح
+supervisor_controller.put("/correction-requests/:requestId/review", error_handler_middleware( supervisor_services.reviewCorrectionRequest_service));
+
+// ✅ الموافقة أو الرفض على طلبات المساعدين
+supervisor_controller.put("/assistant-requests/:requestId/review", error_handler_middleware( supervisor_services.reviewAssistantRequest_service));
 
 
 

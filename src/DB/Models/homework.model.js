@@ -5,7 +5,11 @@ const homeworkSchema = new mongoose.Schema({
   description: { type: String },
 
   // 🔹 Homework resources (e.g., PDF, Docs, etc.)
-  materials: [{ type: String }],
+    materials: {
+    files :{public_id : String,
+      secure_url : String },
+      folderId : String 
+    }, 
 
   // 🔹 Whether the homework is currently active
   isActive: { type: Boolean, default: true },
