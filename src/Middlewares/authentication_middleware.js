@@ -72,6 +72,7 @@ export const authorization_middleware = (allow_role) => {
       const { role: login_user_role } = req.login_user;
 
       const is_user_allowed = allow_role.includes(login_user_role);
+      
       if (!is_user_allowed) {
         return res.status(401).json({ message: "unauthorized" });
       }

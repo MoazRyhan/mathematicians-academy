@@ -42,6 +42,11 @@ export const create_admin_service = async (req, res) => {
       return res.status(400).json({ message: "❌ This user is already an Admin" });
     }
 
+
+    // remake the admin
+    user.role = system_role.ADMIN 
+    await user.save()
+
     // ✅ 4) إنشاء الـ Admin
     const newAdmin = new Admin({ user: userId });
     await newAdmin.save();
@@ -245,127 +250,6 @@ export const sign_up_service = async (req, res) => {
   }
 };
 
-export const sign_up_parent_service = async (req, res) => {
-  try {
-    const {
-      name,
-      email,
-      password,
-      rePassword,
-      phoneNumber,
-      role,
-      studentName,
-      studentNationalId,
-    } = req.body;
-
-    // 1. Ensure that the role is Parent
-    if (role !== system_role.PARENT) {
-      return res
-        .status(403)
-        .json({ message: "Only parents can register in this endpoint" });
-    }
-
-    // 2. Validate required fields
-    if (
-      !name ||
-      !email ||
-      !password ||
-      !rePassword ||
-      !phoneNumber ||
-      !studentName ||
-      !studentNationalId
-    ) {
-      return res
-        .status(400)
-        .json({ message: "Please fill in all required fields" });
-    }
-
-    // 3. Check if passwords match
-    if (password !== rePassword) {
-      return res
-        .status(400)
-        .json({ message: "Password must match RePassword" });
-    }
-
-    // 4. Check if the email is already registered
-    const existingUser = await User.findOne({ email });
-    if (existingUser) {
-      return res.status(400).json({ message: "Email already registered" });
-    }
-
-    // 5. Hash the password
-    const hashedPassword = hashSync(password, +process.env.PASSWORD_SALT);
-
-    // 6. Encrypt phone number
-    const encryptedPhoneNumber = await encryption({
-      value: phoneNumber,
-      secret_key: process.env.PHONE_ENCRYPTION_SECRET,
-    });
-
-    // 7. Find student by name
-    const existingStudent = await Student.findOne({
-      fullName: studentName,
-    });
-
-    // make sure that the student is not pending
-    if (existingStudent.status !== STUDENT_ENUMS.STATUS.PENDING) {
-      return res.status(404).json({
-        message:
-          "❌  this application is pending wait till the admin give the approvement for your son request",
-      });
-    }
-
-    if (existingStudent.status === STUDENT_ENUMS.STATUS.REJECTED) {
-      return res.status(404).json({
-        message:
-          "❌ your son application is rejected call the MS or apply again later",
-      });
-    }
-
-    if (!existingStudent) {
-      return res
-        .status(404)
-        .json({ message: "Student with this name not found" });
-    }
-
-    // 8. Decrypt stored national ID to compare
-    const decryptedStudentNationalId = await decryption({
-      cipher: existingStudent.nationalId,
-      secret_key: process.env.NATIONAL_ID_SECRET_KEY,
-    });
-
-    if (decryptedStudentNationalId !== studentNationalId) {
-      return res
-        .status(400)
-        .json({ message: "National ID does not match this student" });
-    }
-
-    // 9. Create the user
-    const createdUser = await User.create({
-      name,
-      email,
-      password: hashedPassword,
-      role: system_role.PARENT,
-      phoneNumber: encryptedPhoneNumber,
-    });
-
-    // 10. Create the Parent document and link it to the student
-    await Parent.create({
-      user: createdUser._id,
-      students: [existingStudent._id],
-    });
-
-    // 11. Send success response
-    return res.status(201).json({
-      message: "Parent registered successfully and linked to student",
-      userId: createdUser._id,
-      studentId: existingStudent._id,
-    });
-  } catch (error) {
-    console.error("Error in parent signup ==========>", error);
-    return res.status(500).json({ message: "Internal server error" });
-  }
-};
 
 export const login_service = async (req, res) => {
   try {
@@ -385,7 +269,7 @@ export const login_service = async (req, res) => {
 
     if (ComingUser.role == system_role.STUDENT) {
       const student = await Student.findOne({ user: ComingUser._id });
-      if (student.status == STUDENT_ENUMS.STATUS.PENDING) {
+      if (  student.status == STUDENT_ENUMS.STATUS.PENDING ) {
         return res.status(409).json({
           message:
             "this application is pending wait till the admin give the approvement",

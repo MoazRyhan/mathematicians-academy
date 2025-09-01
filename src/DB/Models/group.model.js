@@ -6,11 +6,11 @@ const groupSchema = new mongoose.Schema({
 
   students: [{ type: mongoose.Schema.Types.ObjectId, ref: 'Student' }],
 
-  assistants: [{ type: mongoose.Schema.Types.ObjectId, ref: 'Assistant' }],
+  assistants: { type: mongoose.Schema.Types.ObjectId, ref: 'Assistant' },
 
-  supervisors: [{ type: mongoose.Schema.Types.ObjectId, ref: 'Supervisor' }], // ✅ جديد
+  supervisors: { type: mongoose.Schema.Types.ObjectId, ref: 'Supervisor' }, // ✅ جديد
 
-  sessions: [{ type: mongoose.Schema.Types.ObjectId, ref: 'Session' }], // ✅ جديد
+  sessions: [{ type: mongoose.Schema.Types.ObjectId, ref: 'Session' }], // i thing this is no need for this 
 
   status: {
     type: String,

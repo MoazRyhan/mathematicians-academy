@@ -25,6 +25,7 @@ const homeworkSchema = new mongoose.Schema({
     // Relations
   session: { type: mongoose.Schema.Types.ObjectId, ref: 'Session', required: true }, // ✅ إضافة علاقة بالجلسة
   assignedBy: { type: mongoose.Schema.Types.ObjectId, ref: 'Teacher', required: true },
+  isAdminAddIt: { type: Boolean, default: false }
   
 
 }, { timestamps: true });

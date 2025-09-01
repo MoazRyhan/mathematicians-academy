@@ -7,7 +7,7 @@ import { decryption, encryption } from "../../../Utils/encryption.utils.js";
 import Session from "../../../DB/Models/session.model.js";
 import Payment from "../../../DB/Models/payment.model.js";
 import Submission from "../../../DB/Models/submission.model.js";
-import { PDFExtension, STUDENT_ENUMS, SUBMISSION_TYPE } from "../../../Constants/constants.js";
+import { EXAM_TYPE, PDFExtension, STUDENT_ENUMS, SUBMISSION_TYPE } from "../../../Constants/constants.js";
 import { PAYMENT_TYPE } from "../../../Constants/constants.js";
 import PaymentCode from "../../../DB/Models/paymentCode.model.js";
 import Section from "../../../DB/Models/section.model.js";
@@ -82,7 +82,6 @@ export const get_student_service = async (req, res) => {
     return res.status(500).json({ message: "Internal server error" });
   }
 };
-
 
 export const update_student_service = async (req, res) => {
   try {
@@ -200,7 +199,6 @@ export const update_student_service = async (req, res) => {
     return res.status(500).json({ message: "Internal server error" });
   }
 };
-
 
 export const delete_student_service = async (req, res) => {
   try {
@@ -451,8 +449,96 @@ if (paymentMethod === PAYMENT_TYPE.CODE) {
   }
 };
 
-//  watch video
+export const open_session_video_service = async (req, res) => {
+  try {
+    const { _id: userId } = req.login_user;
+    const { sessionId } = req.params;
 
+    const student = await Student.findOne({ user: userId });
+    if (!student) {
+      return res.status(404).json({ message: "❌ Student not found" });
+    }
+
+    const session = await Session.findById(sessionId)
+      .populate("prerequisites homework section exam studentResults.student");
+    if (!session) {
+      return res.status(404).json({ message: "❌ Session not found" });
+    }
+
+    // ✅ التحقق من division و grade
+    if (student.division !== session.division || student.grade !== session.grade) {
+      return res.status(403).json({ message: "❌ You are not allowed to watch this session" });
+    }
+
+    // ✅ التحقق من الـ prerequisites
+    if (session.prerequisites && session.prerequisites.length > 0) {
+      // 1️⃣ تحقق هل الطالب عنده السيشن دي في الـ sessionProgress
+const missingPrereqSessions = session.prerequisites.filter(prereq => {
+  const prereqId = prereq._id ? prereq._id.toString() : prereq.toString();
+  return !student.sessionProgress.some(sp => sp.session.toString() === prereqId);
+});
+
+// return res.status(403).json({ message: "❌ " });
+      if (missingPrereqSessions.length > 0) {
+        return res.status(403).json({
+          message: "❌ You must own the prerequisite sessions before unlocking this one",
+          missingPrerequisites: missingPrereqSessions
+        });
+      }
+
+      // 2️⃣ تحقق من إنجاز المطلوب في السيشن السابقة
+const unmetPrerequisites = session.prerequisites.filter(prereq => {
+  const prereqId = prereq._id ? prereq._id.toString() : prereq.toString();
+  const progress = student.sessionProgress.find(sp => sp.session.toString() === prereqId);
+  
+  return !progress ||
+         !progress.isSectionSubmitted ||
+         !progress.isHomeworkSubmitted ||
+         !progress.isExamSubmitted ||
+         !progress.isQuizSubmitted;
+});
+
+
+      if (unmetPrerequisites.length > 0) {
+        return res.status(403).json({
+          message: "❌ You must complete all required submissions in the prerequisite sessions",
+          unmetPrerequisites
+        });
+      }
+    }
+
+    // ✅ لو السيشن مش موجودة عنده خالص
+    if (student.sessionCredits <= 0) {
+      return res.status(400).json({ message: "❌ You don't have enough session credits" });
+    }
+
+    // ✅ خصم كريدت واحد
+    student.sessionCredits -= 1;
+
+    // ✅ أضف السيشن في sessionProgress مع تاريخ انتهاء بعد 7 أيام
+    const expirationDate = new Date();
+    expirationDate.setDate(expirationDate.getDate() + 7);
+
+    student.sessionProgress.push({
+      session: sessionId,
+      isPaid: true,
+      expirationDate
+    });
+
+    await student.save();
+
+    return res.status(200).json({
+      message: "✅ Session unlocked for 7 days",
+      remainingCredits: student.sessionCredits,
+      expiresAt: expirationDate,
+      session
+    });
+
+  } catch (error) {
+    console.error("❌ Error in open_session_video_service============>", error);
+    return res.status(500).json({ message: "Internal server error" });
+  }
+};
 
 export const get_payment_history_service = async (req, res) => {
   try {
@@ -525,8 +611,8 @@ export const submit_Homework_Solution_service = async (req, res) => {
       session: sessionExist._id,
       submissionType: SUBMISSION_TYPE.HOMEWORK,
       pdfSolution: {
-        public_id: uploadResult.public_id,
-        secure_url: uploadResult.secure_url,
+         files : { public_id: uploadResult.public_id,
+        secure_url: uploadResult.secure_url },
         folderId: folderPath
       },
       homework: sessionExist.homework._id,
@@ -540,12 +626,12 @@ export const submit_Homework_Solution_service = async (req, res) => {
 
     if (sessionProgressIndex !== -1) {
       student.sessionProgress[sessionProgressIndex].isHomeworkSubmitted = true;
-      student.sessionProgress[sessionProgressIndex].homeworkSubmission.push(newSubmission._id);
+      student.sessionProgress[sessionProgressIndex].homeworkSubmission = newSubmission._id;
     } else {
       student.sessionProgress.push({
         session: sessionId,
         isHomeworkSubmitted: true,
-        homeworkSubmission: [newSubmission._id]
+        homeworkSubmission: newSubmission._id
       });
     }
 
@@ -605,8 +691,8 @@ export const upload_Section_Material_service = async (req, res) => {
       session: sessionExist._id,
       submissionType: SUBMISSION_TYPE.SECTION,
       pdfSolution: {
-        public_id: uploadResult.public_id,
-        secure_url: uploadResult.secure_url,
+        files :{ public_id: uploadResult.public_id,
+        secure_url: uploadResult.secure_url },
         folderId: folderPath
       },
       section: sessionExist.section._id,
@@ -620,12 +706,12 @@ export const upload_Section_Material_service = async (req, res) => {
 
     if (sessionProgressIndex !== -1) {
       student.sessionProgress[sessionProgressIndex].isSectionSubmitted = true;
-      student.sessionProgress[sessionProgressIndex].sectionSubmission.push(newSubmission._id);
+      student.sessionProgress[sessionProgressIndex].sectionSubmission = newSubmission._id
     } else {
       student.sessionProgress.push({
         session: sessionId,
         isSectionSubmitted: true,
-        sectionSubmission: [newSubmission._id]
+        sectionSubmission: newSubmission._id
       });
     }
 
@@ -747,86 +833,139 @@ export const submit_VideoQuiz_Answers_service = async (req, res) => {
 
 
 
-// any thing below is under testing
-//===========================================
-
-
-// ( wait for ============ ahmed ============= )
-// need to check  if the session depend on other one in ( prerequisites ) and if yes check if the student in the ( sessionProgress )  in the student model make the isSectionSubmitted  and isHomeworkSubmitted is true  if exist
-//  and add points id the student finish the questions quiz and the video 
-export const open_session_video_service = async (req, res) => {
+// ======================= monthly exam
+export const get_monthly_exams_service = async (req, res) => {
   try {
     const { _id: userId } = req.login_user;
-    const { sessionId } = req.params;
 
     const student = await Student.findOne({ user: userId });
     if (!student) {
       return res.status(404).json({ message: "❌ Student not found" });
     }
 
-    const session = await Session.findById(sessionId)
-      .populate("prerequisites homework section exam studentResults.student");
-    if (!session) {
-      return res.status(404).json({ message: "❌ Session not found" });
-    }
+    // ✅ هجيب الامتحانات الشهرية المرتبطة بجريد الطالب )
+    const exams = await Exam.find({
+      isActive: true,
+      examType : EXAM_TYPE.MONTHLY ,
+      month: { $exists: true, $ne: null },
+    })
 
-    // // ✅ التحقق من division و grade
-    if (student.division !== session.division || student.grade !== session.grade) {
-      return res.status(403).json({ message: "❌ You are not allowed to watch this session" });
-    }
-
-    // ✅ التحقق من الـ prerequisites
-    if (session.prerequisites && session.prerequisites.length > 0) {
-      const unmetPrerequisites = session.prerequisites.filter(prereqId => {
-        const progress = student.sessionProgress.find(
-          sp => sp.session.toString() === prereqId.toString()
-        );
-        return !progress ||
-               !progress.isSectionSubmitted ||
-               !progress.isHomeworkSubmitted ||
-               !progress.isQuizSubmitted;
-      });
-
-      if (unmetPrerequisites.length > 0) {
-        return res.status(403).json({
-          message: "❌ يجب عليك إنهاء كل الجلسات المطلوبة قبل فتح هذه الجلسة (تسليم السيكشن، الواجب، والاختبار)",
-          unmetPrerequisites
-        });
-      }
-    }
-
-    // ✅ لو السيشن مش موجودة عنده خالص
-    if (student.sessionCredits <= 0) {
-      return res.status(400).json({ message: "❌ You don't have enough session credits" });
-    }
-
-    // ✅ خصم كريدت واحد
-    student.sessionCredits -= 1;
-
-    // ✅ أضف السيشن في sessionProgress مع تاريخ انتهاء بعد 7 أيام
-    const expirationDate = new Date();
-    expirationDate.setDate(expirationDate.getDate() + 7);
-
-    student.sessionProgress.push({
-      session: sessionId,
-      isPaid: true,
-      expirationDate
-    });
-
-    await student.save();
+    const filteredExams = exams.filter(exam =>
+      exam?.grade == student.grade &&
+      exam?.division == student.division
+    );
 
     return res.status(200).json({
-      message: "✅ Session unlocked for 7 days",
-      remainingCredits: student.sessionCredits,
-      expiresAt: expirationDate,
-      session
+      message: "✅ Monthly exams fetched successfully",
+      exams: filteredExams
     });
 
   } catch (error) {
-    console.error("❌ Error in open_session_video_service============>", error);
+    console.error("❌ Error in get_monthly_exams_service============>", error);
     return res.status(500).json({ message: "Internal server error" });
   }
 };
+
+
+
+
+// any thing below is under testing
+//===========================================
+
+
+
+
+
+// ================================== wait till understand it form abdo
+export const submit_Exam_Solution_service = async (req, res) => {
+  try {
+    const { examId } = req.params;
+    const { _id: userId } = req.login_user;
+
+    // ✅ Check if file exists
+    if (!req.file) {
+      return res.status(400).json({ message: "❌ PDF file is required" });
+    }
+
+    // ✅ Validate file type
+    if (
+      !PDFExtension.some(type => req.file.mimetype.startsWith(type)) &&
+      req.file.originalname.split(".").pop().toLowerCase() !== "pdf"
+    ) {
+      return res.status(400).json({ message: "❌ Only PDF files are allowed" });
+    }
+
+    // ✅ Find student
+    const student = await Student.findOne({ user: userId });
+    if (!student) {
+      return res.status(400).json({ message: "❌ This student does not exist" });
+    }
+
+    // ✅ Find Exam
+    const examExist = await Exam.findById(examId);
+    if (!examExist  || examExist.examType == EXAM_TYPE.MONTHLY  || examExist.month  ) {
+      return res.status(400).json({ message: "❌ Exam not found" });
+    }
+
+    // ✅ Upload PDF to Cloudinary
+    const folderPath = `${process.env.FOLDER_NAME_CLOUDINARY}/User/Submissions/Exams/${examExist.title}`;
+    const uploadResult = await cloudinary().uploader.upload(req.file.path, {
+      folder: folderPath,
+      resource_type: "raw",
+      format: "pdf"
+    });
+
+    if (!uploadResult?.public_id || !uploadResult?.secure_url) {
+      return res.status(500).json({ message: "❌ Failed to upload file to Cloudinary" });
+    }
+
+    // ✅ Create new submission
+    const newSubmission = await Submission.create({
+      student: student._id,
+      exam: examExist._id,
+      submissionType: SUBMISSION_TYPE.EXAM,
+      pdfSolution: {
+        files: { public_id: uploadResult.public_id, secure_url: uploadResult.secure_url },
+        folderId: folderPath
+      },
+      deadline: examExist.deadline
+    });
+
+    // ✅ Add submission to Exam
+    examExist.submissions.push(newSubmission._id);
+    await examExist.save();
+
+    // ✅ Update Student sessionProgress
+    const sessionProgressIndex = student.sessionProgress.findIndex(
+      sp => sp.session?.toString() === examExist.relatedSession?.toString()
+    );
+
+    if (sessionProgressIndex !== -1) {
+      student.sessionProgress[sessionProgressIndex].isExamSubmitted = true;
+      student.sessionProgress[sessionProgressIndex].examSubmission = newSubmission._id;
+    } else {
+      student.sessionProgress.push({
+        session: examExist.relatedSession,
+        isExamSubmitted: true,
+        examSubmission: newSubmission._id
+      });
+    }
+
+    await student.save();
+
+    return res.status(201).json({
+      message: "✅ Exam submitted successfully",
+      submission: newSubmission
+    });
+
+  } catch (error) {
+    console.error("❌ Error in submit_Exam_Solution_service:", error);
+    return res.status(500).json({ message: "Internal server error" });
+  }
+};
+
+
+//===================================== wait till understand it form abdo
 export const submit_monthly_exam_service = async (req, res) => {
   try {
     const { _id: userId } = req.login_user;
@@ -841,6 +980,10 @@ export const submit_monthly_exam_service = async (req, res) => {
     const exam = await Exam.findById(examId)
     if (!exam || !exam.isActive) {
       return res.status(404).json({ message: "❌ Exam not found or inactive" });
+    }
+
+    if ( exam.examType == EXAM_TYPE.FIXED || exam.examType == EXAM_TYPE.QUESTION_BANK) {
+      return res.status(404).json({ message: "❌ this exm is not a monthly exam" });
     }
 
     // ✅ تحقق إن الامتحان الشهري للطالب (حسب الجريد والديڤيجن)
@@ -878,7 +1021,9 @@ export const submit_monthly_exam_service = async (req, res) => {
 
 
 
-export const getSectionStatus = async (req, res) => {
+
+// ============================== need to work with ( assistant and supervisor flow )
+export const get_Section_Status_service = async (req, res) => {
   try {
     const { sessionId } = req.params;
     const { _id: userId } = req.login_user;
@@ -908,7 +1053,7 @@ export const getSectionStatus = async (req, res) => {
     return res.status(500).json({ message: "Internal server error" });
   }
 };
-export const getHomeworkStatus = async (req, res) => {
+export const get_Homework_Status_service = async (req, res) => {
   try {
     const { sessionId } = req.params;
     const { _id: userId } = req.login_user;
@@ -937,32 +1082,42 @@ export const getHomeworkStatus = async (req, res) => {
     return res.status(500).json({ message: "Internal server error" });
   }
 };
- export const getQuizStatus = async (req, res) => {
+export const get_exam_Status_service = async (req, res) => {
   try {
-    const { sessionId } = req.params;
+    const { examId } = req.params;
     const { _id: userId } = req.login_user;
 
+    // ✅ جلب الطالب
     const student = await Student.findOne({ user: userId });
     if (!student) {
       return res.status(404).json({ message: "❌ Student not found" });
     }
 
-    const session = await Session.findById(sessionId);
-    if (!session) {
-      return res.status(404).json({ message: "❌ Session not found" });
+    // ✅ جلب الامتحان
+    const exam = await Exam.findById(examId);
+    if (!exam) {
+      return res.status(404).json({ message: "❌ Exam not found" });
     }
 
-    const quizResult = session.studentResults.find(result => result.student.toString() === student._id.toString());
+    // ✅ جلب السبميشن للطالب لهذا الامتحان
+    const submission = await Submission.findOne({
+      student: student._id,
+      exam: examId
+    });
 
+    // ✅ تجهيز الرد
     return res.status(200).json({
-      message: "✅ Quiz status fetched successfully",
-      sessionId,
-      isQuizSubmitted: !!quizResult,
-      score: quizResult ? quizResult.score : null,
-      passed: quizResult ? quizResult.passed : null
+      message: "✅ Exam result fetched successfully",
+      examId,
+      examTitle: exam.title,
+      isSubmitted: !!submission,
+      grade: submission ? submission.grade : null,
+      isCorrected: submission ? submission.isCorrected : false,
+      reviewStatus: submission ? submission.reviewStatus : null,
+      finalGrade: submission ? submission.finalGrade : null
     });
   } catch (error) {
-    console.error("❌ error in getQuizStatus:", error);
+    console.error("❌ Error in get_exam_result_service:", error);
     return res.status(500).json({ message: "Internal server error" });
   }
 };
@@ -971,35 +1126,5 @@ export const getHomeworkStatus = async (req, res) => {
 
 
 
-export const get_monthly_exams_service = async (req, res) => {
-  try {
-    const { _id: userId } = req.login_user;
 
-    const student = await Student.findOne({ user: userId });
-    if (!student) {
-      return res.status(404).json({ message: "❌ Student not found" });
-    }
-
-    // ✅ هجيب الامتحانات الشهرية المرتبطة بجريد الطالب )
-    const exams = await Exam.find({
-      isActive: true,
-      month: { $exists: true, $ne: null },
-    })
-
-    // ✅ فلترة عشان يجيب الامتحانات الخاصة بجريد وديفيجن الطالب
-    const filteredExams = exams.filter(exam =>
-      exam?.grade === student.grade &&
-      exam?.division === student.division
-    );
-
-    return res.status(200).json({
-      message: "✅ Monthly exams fetched successfully",
-      exams: filteredExams
-    });
-
-  } catch (error) {
-    console.error("❌ Error in get_monthly_exams_service============>", error);
-    return res.status(500).json({ message: "Internal server error" });
-  }
-};
 

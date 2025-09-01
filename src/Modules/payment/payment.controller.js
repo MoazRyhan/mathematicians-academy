@@ -23,12 +23,4 @@ payment_controller.post( "/add_student_manual"  , error_handler_middleware(payme
 
 
 
-
-
-
-
-
-
-
-
 export default payment_controller

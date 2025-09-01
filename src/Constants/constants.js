@@ -83,14 +83,13 @@ export const SUBMISSION_REVIEW_STATUS = {
 // 📂 exam.enum.js
 
 export const EXAM_TYPE = {
-    FIXED: 'fixed',
-    QUESTION_BANK: 'question_bank' ,
+    SESSION: 'session',
     MONTHLY : "monthly"
 };
 
 export const EXAM_QUESTION_TYPE = {
     MULTIPLE_CHOICE: 'multiple_choice',
-    ESSAY: 'essay' 
+    QUESTION_BANK: 'question_bank' 
 };
 
 export const EXAM_TIME_TYPE = {
@@ -151,6 +150,17 @@ export const ASSISTANT_REQUEST_STATUS = {
     REJECTED: 'rejected'
 };
 
+export const ASSISTANT_REQUEST_TYPE = {
+  VIDEO_EXTENSION: 'video_extension',
+   FREE_SESSION:'free_session' ,
+   SUBMISSION_OVERRIDE :'submission_override'
+};
+
+export const TARGET_MODEL_TYPE = {
+ VIDEO : 'Video',
+ SESSION : 'Session',
+ SUBMISSION :'Submission'
+};
 
 
 

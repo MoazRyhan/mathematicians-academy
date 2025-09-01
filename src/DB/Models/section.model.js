@@ -23,11 +23,12 @@ const sectionSchema = new mongoose.Schema({
   division: { type: String, required: true },
 
 
-    // Relations
+  // Relations
   session: { type: mongoose.Schema.Types.ObjectId, ref: 'Session', required: true }, // ✅ إضافة علاقة بالجلسة
   assignedBy: { type: mongoose.Schema.Types.ObjectId, ref: 'Teacher', required: true },
+  isAdminAddIt: { type: Boolean, default: false },
 
-    // 🔹 Reference to student submissions
+  // 🔹 Reference to student submissions
   submissions: [{ type: mongoose.Schema.Types.ObjectId, ref: "Submission" }],
 
 }, { timestamps: true });

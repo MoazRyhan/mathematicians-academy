@@ -23,16 +23,22 @@ student_controller.get("/get_sessions_list", error_handler_middleware(student_se
 // submit
 student_controller.post(  "/submit_homework/:sessionId"  , Multer_host( PDFExtension ).single("HomeworkPDF")  , error_handler_middleware(student_services.submit_Homework_Solution_service)  ) 
 student_controller.post(  "/submit_section/:sessionId"  , Multer_host( PDFExtension ).single("SectionPDF")  , error_handler_middleware(student_services.upload_Section_Material_service)  ) 
+student_controller.post(  "/submit_exam/:examId"  , Multer_host( PDFExtension ).single("ExamPDF")  , error_handler_middleware(student_services.submit_Exam_Solution_service)  ) 
 student_controller.post(  "/submit_video_quizzes/:sessionId"  , error_handler_middleware(student_services.submit_VideoQuiz_Answers_service)  ) 
 
+// monthly exam
+student_controller.get("/get_monthly_exams",  error_handler_middleware( student_services.get_monthly_exams_service));
+student_controller.post("/submit_monthly_exam/:examId", error_handler_middleware (student_services.submit_monthly_exam_service ) );
+
+
+
+
 // ======================================== testing
-student_controller.get("/get_monthly_exam",  error_handler_middleware( student_services.get_monthly_exams_service));
-student_controller.post("/submit_monthly_exams/:examId/submit", error_handler_middleware (student_services.submit_monthly_exam_service ) );
 
 
-student_controller.get("/section_status/:sessionId",  error_handler_middleware (student_services.getSectionStatus))
-student_controller.get("/homework_status/:sessionId",  error_handler_middleware (student_services.getHomeworkStatus));
-student_controller.get("/quiz_status/:sessionId",  error_handler_middleware (student_services.getQuizStatus));
+student_controller.get("/get_section_status/:sessionId",  error_handler_middleware (student_services.get_Section_Status_service))
+student_controller.get("/get_homework_status/:sessionId",  error_handler_middleware (student_services.get_Homework_Status_service));
+student_controller.get("/get_exam_status/:examId",  error_handler_middleware (student_services.get_exam_Status_service));
 
 
 

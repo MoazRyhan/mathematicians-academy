@@ -1,19 +1,20 @@
 import mongoose from "mongoose";
-import { EXAM_TYPE, EXAM_QUESTION_TYPE, EXAM_TIME_TYPE } from "../../Constants/constants.js";
+import { EXAM_TYPE, EXAM_TIME_TYPE } from "../../Constants/constants.js";
 
 const examSchema = new mongoose.Schema({
   title: { type: String, required: true },
 
   examType: { type: String, enum: Object.values(EXAM_TYPE), required: true },
 
-  questions: [{
-    questionText: { type: String, required: true },
-    questionType: { type: String, enum: Object.values(EXAM_QUESTION_TYPE), required: true },
-    
-    options: [{ type: String }],       // للاختياري فقط
-    correctAnswer: { type: String },   // للاختياري فقط
+  questions: {
 
-    // 🟢 بنك الأسئلة (لو النوع QUESTION_BANK)
+    multipleChoices :[ { 
+    questionText: { type: String, required: true },
+    options: [{ type: String }],       
+    correctAnswer: { type: String },   
+    }],
+
+
     questionBank: [{
       questionText: { type: String },
       options: [{ type: String }],
@@ -21,7 +22,7 @@ const examSchema = new mongoose.Schema({
     }],
 
     points: { type: Number, required: true }, // for all
-  }],
+  },
 
   
   timeType: { type: String, enum: Object.values(EXAM_TIME_TYPE), required: true },
@@ -35,6 +36,7 @@ const examSchema = new mongoose.Schema({
   
   relatedSession: { type: mongoose.Schema.Types.ObjectId, ref: 'Session' },
   createdBy: { type: mongoose.Schema.Types.ObjectId, ref: 'Teacher', required: true },
+  isAdminAddIt: { type: Boolean, default: false },
 
   // 🔹 Reference to student submissions
   submissions: [{ type: mongoose.Schema.Types.ObjectId, ref: "Submission" }],  // now

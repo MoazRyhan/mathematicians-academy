@@ -11,7 +11,7 @@ const { ACCOUNTANT } = system_role
 accountant_controller.use(authentication_middleware() , authorization_middleware([ACCOUNTANT]) )
 
 
-accountant_controller.post( "/login"  , error_handler_middleware(accountant_services.login_service  ))
+accountant_controller.get( "/get_accountant_data"  , error_handler_middleware(accountant_services.get_accountant_data_service  ))
 
 
 

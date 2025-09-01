@@ -1,5 +1,5 @@
 import mongoose from "mongoose";
-import { ASSISTANT_REQUEST_STATUS } from "../../Constants/constants.js";
+import { ASSISTANT_REQUEST_STATUS, ASSISTANT_REQUEST_TYPE, TARGET_MODEL_TYPE } from "../../Constants/constants.js";
 
 const assistantRequestSchema = new mongoose.Schema({
   assistant: { type: mongoose.Schema.Types.ObjectId, ref: 'Assistant', required: true },
@@ -7,7 +7,7 @@ const assistantRequestSchema = new mongoose.Schema({
 
   type: {
     type: String,
-    enum: ['video_extension', 'free_session', 'submission_override'], // ✅ الأنواع كلها في مكان واحد
+    enum: Object.values(ASSISTANT_REQUEST_TYPE),
     required: true
   },
 
@@ -21,7 +21,7 @@ const assistantRequestSchema = new mongoose.Schema({
   // ✅ الموديل المناسب حسب النوع
   targetModel: {
     type: String,
-    enum: ['Video', 'Session', 'Submission'],
+    enum: Object.values(TARGET_MODEL_TYPE),
     required: true
   },
 

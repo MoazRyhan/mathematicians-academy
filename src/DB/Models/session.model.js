@@ -25,7 +25,8 @@ const sessionSchema = new mongoose.Schema({
     options: [{ type: String }],
     correctAnswer: { type: String, required: true },
     showAtTime: { type: Number, required: true }, 
-    passingGrade: { type: Number, default: 0 },
+    passingGrade: { type: Number, default: 0 }, 
+    isAdminAddIt: { type: Boolean, default: false },
   }],
   studentResults: [{
     student: { type: mongoose.Schema.Types.ObjectId, ref: 'Student' },
@@ -53,6 +54,7 @@ const sessionSchema = new mongoose.Schema({
   },
 
   createdBy: { type: mongoose.Schema.Types.ObjectId, ref: 'Teacher', required: true },
+  isAdminAddIt: { type: Boolean, default: false }
 }, { timestamps: true });
 
 const Session = mongoose.models.session || mongoose.model('Session', sessionSchema);

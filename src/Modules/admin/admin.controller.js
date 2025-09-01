@@ -35,9 +35,6 @@ admin_controller.delete("/delete_exam/:examId", error_handler_middleware(admin_s
 // generate_code part
 admin_controller.post(  "/generate-codes" , error_handler_middleware(admin_services.generate_payment_codes_service));
 
-admin_controller.post("/add_student_toAssistant", error_handler_middleware(  admin_services.add_Student_To_Assistant_service));
-admin_controller.post("/remove_student_fromAssistant",  error_handler_middleware(  admin_services.remove_Student_From_Assistant_service));
-
-
+admin_controller.put(  "/update_group_members" , error_handler_middleware(admin_services.update_group_members_service ));
 
 export default admin_controller

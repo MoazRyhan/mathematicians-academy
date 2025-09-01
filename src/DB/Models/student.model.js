@@ -50,7 +50,7 @@ const studentSchema = new mongoose.Schema({
     required: true
   },
 
-  center: { type: mongoose.Schema.Types.ObjectId, ref: 'Center' },
+  center: { type: mongoose.Schema.Types.ObjectId, ref: 'Center' }, // i thing there is no need for this
 
   status: {
     type: String,
@@ -71,6 +71,8 @@ const studentSchema = new mongoose.Schema({
   redeemablePoints: { type: Number, default: 0 },
 
   sessionCredits: { type: Number, default: 0 },
+
+  group: { type: mongoose.Schema.Types.ObjectId, ref: 'Group' },
 
 sessionProgress: [{
   session: { type: mongoose.Schema.Types.ObjectId, ref: 'Session' },

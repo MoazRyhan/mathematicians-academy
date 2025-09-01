@@ -5,9 +5,10 @@ import Session from "../../../DB/Models/session.model.js";
 import Teacher from "./../../../DB/Models/teacher.model.js";
 import Homework from "../../../DB/Models/homework.model.js";
 import Section from "../../../DB/Models/section.model.js";
-import { SESSION_TIME, STUDENT_ENUMS ,EXAM_TYPE, EXAM_QUESTION_TYPE, EXAM_TIME_TYPE  } from "../../../Constants/constants.js";
+import { SESSION_TIME, STUDENT_ENUMS ,EXAM_TYPE, EXAM_QUESTION_TYPE, EXAM_TIME_TYPE, system_role  } from "../../../Constants/constants.js";
 import Exam from "../../../DB/Models/exam.model.js";
 import mongoose from "mongoose";
+import Admin from "../../../DB/Models/admin.model.js";
 
 
 
@@ -65,7 +66,7 @@ export const get_teacher_data_service = async (req, res) => {
   }
 };
 
-// ======================== add delete update things
+// ======================== 👨‍🏫 teacher add session 
 
 export const add_Session_teacher_service_teacher = async (req, res) => {
   try {
@@ -157,6 +158,18 @@ export const add_Session_teacher_service_teacher = async (req, res) => {
       const examExists = await Exam.findById(exam);
       if (!examExists) {
         return res.status(400).json({ message: "❌ Exam not found" });
+      }
+    }
+
+        // ✅ Validate videoQuizzes
+    if (videoQuizzes && Array.isArray(videoQuizzes)) {
+      for (let quiz of videoQuizzes) {
+        if (!quiz.questionText || !quiz.correctAnswer || !quiz.showAtTime) {
+          return res.status(400).json({ message: "❌ Each quiz must have questionText, correctAnswer, and showAtTime" });
+        }
+        if (!Array.isArray(quiz.options) || quiz.options.length < 2) {
+          return res.status(400).json({ message: "❌ Each quiz must have at least 2 options" });
+        }
       }
     }
 
@@ -303,12 +316,43 @@ export const update_session_teacher_service_teacher  = async (req, res) => {
       }
     }
 
-    // ✅ Filter allowed fields
+    // ✅ Filter allowed fields only
     const filteredUpdates = {};
     for (let key of allowedFields) {
       if (updates[key] !== undefined) {
         filteredUpdates[key] = updates[key];
       }
+    }
+
+    // ✅ Check if any change happened
+    let isChanged = false;
+
+    for (let key of Object.keys(filteredUpdates)) {
+      const oldVal = currentSession[key];
+
+      if (Array.isArray(filteredUpdates[key])) {
+        const newArr = filteredUpdates[key].map(v => v.toString());
+        const oldArr = (oldVal || []).map(v => v.toString());
+
+        if (newArr.length !== oldArr.length || !newArr.every(v => oldArr.includes(v))) {
+          isChanged = true;
+          break;
+        }
+      } else if (typeof oldVal === "object" && oldVal?._id) {
+        if (oldVal.toString() !== filteredUpdates[key].toString()) {
+          isChanged = true;
+          break;
+        }
+      } else {
+        if (filteredUpdates[key].toString() !== (oldVal ?? "").toString()) {
+          isChanged = true;
+          break;
+        }
+      }
+    }
+
+    if (!isChanged) {
+      return res.status(400).json({ message: "⚠️ No changes detected" });
     }
 
     // ✅ Update session
@@ -380,15 +424,27 @@ export const add_exam_service_teacher = async (req, res) => {
       endTime,
       duration,
       deadline,
-      allowFileUpload,
       month,
       isActive ,
-      division ,
-      grade
+      grade ,
+      division 
     } = req.body;
+    
+    if (  ( examType == EXAM_TYPE.FIXED  || examType == EXAM_TYPE.QUESTION_BANK )  && !relatedSession  ) {
+      return res.status(400).json({ message: "you must add the relatedSession" });
+    }
 
+        // ✅ لو Monthly → لازم month
+    if (examType === EXAM_TYPE.MONTHLY && !month) {
+      return res.status(400).json({ message: "❌ Month is required for monthly exams" });
+    }
+
+    if (examType === EXAM_TYPE.MONTHLY && relatedSession) {
+      return res.status(400).json({ message: "❌ related session not with monthly exams" });
+    }
+     
     // ✅ التحقق من الحقول الأساسية
-    if (!relatedSession || !timeType || !examType || !title || !questions || !grade || division ) {
+    if ( !timeType || !examType || !title || !questions || !grade || !division ) {
       return res.status(400).json({ message: "Please fill in all required fields" });
     }
 
@@ -396,11 +452,6 @@ export const add_exam_service_teacher = async (req, res) => {
     const teacherRecord = await Teacher.findOne({ user: _id });
     if (!teacherRecord) {
       return res.status(403).json({ message: "❌ Only teachers can add exams" });
-    }
-
-    // ✅ لو Monthly → لازم month
-    if (examType === EXAM_TYPE.MONTHLY && !month) {
-      return res.status(400).json({ message: "❌ Month is required for monthly exams" });
     }
 
     // ✅ Validate Questions
@@ -442,12 +493,20 @@ export const add_exam_service_teacher = async (req, res) => {
       duration,
       deadline,
       createdBy: teacherRecord._id,
-      allowFileUpload,
       month,
       isActive ,
       grade ,
       division
     });
+
+    if ( relatedSession  ) {
+     const session = await Session.findOne({ _id:relatedSession })
+     if (!session) {
+      return res.status(400).json({ message: "this session is not found" });
+     }
+      session.exam = newExam._id
+      await session.save()
+    }
 
     return res.status(201).json({
       message: "✅ Exam created successfully",
@@ -561,142 +620,537 @@ export const delete_exam_service_teacher = async (req, res) => {
 };
 
 
-//===================== ✅ 1. Add Homework to a Session
+
+
+
+
+
+
+//===================== ✅ 1.👨‍🏫 Teacher  / admin ==> homework 
 export const add_Homework_ToSession_service = async (req, res) => {
   try {
     const { sessionId } = req.params;
-    const {_id: teacherId} = req.login_user
-    const { title, description , availableFrom , deadline } = req.body;
+    const { _id: loginUserId, role: ROLE } = req.login_user;
+    const { title, description, availableFrom, deadline, teacherIdForAssign } = req.body;
 
-      if (!title) {
-        return res.status(400).json({ message: "❌ you must full the filed" });
-      }
-
-    const teacher = await Teacher.findOne({user : teacherId});
-    if (!teacher) {
-      return res.status(404).json({ message: "❌ teacher not found" });
+    if (!title) {
+      return res.status(400).json({ message: "❌ you must fill the title" });
     }
 
+    // ✅ Get session
     const sessionExist = await Session.findById(sessionId);
     if (!sessionExist) {
       return res.status(404).json({ message: "❌ Session not found" });
     }
 
+    let assignedByTeacherId;
+    let isAdminAddIt = false; // Default
+
+    if (ROLE === system_role.TEACHER) {
+      // ✅ If role = teacher
+      const teacher = await Teacher.findOne({ user: loginUserId });
+      if (!teacher) {
+        return res.status(404).json({ message: "❌ Teacher not found" });
+      }
+      assignedByTeacherId = teacher._id;
+
+    } else if (ROLE === system_role.ADMIN) {
+      // ✅ If role = admin → must send teacherIdForAssign
+      if (!teacherIdForAssign) {
+        return res.status(400).json({ message: "❌ teacherIdForAssign is required for admins" });
+      }
+
+      const teacher = await Teacher.findById(teacherIdForAssign);
+      if (!teacher) {
+        return res.status(404).json({ message: "❌ Teacher not found for provided teacherIdForAssign" });
+      }
+      assignedByTeacherId = teacher._id;
+      isAdminAddIt = true; // ✅ Admin added it
+    } else {
+      return res.status(403).json({ message: "❌ You are not allowed to perform this action" });
+    }
+
+    // ✅ Create new homework
     const newHomework = new Homework({
       title,
       description,
       session: sessionId,
       availableFrom: availableFrom || sessionExist.availableAt || sessionExist.createdAt,
-      deadline: deadline || new Date(sessionExist.createdAt).setDate(new Date(sessionExist.createdAt).getDate() + 7), // for 7 days
-      grade : sessionExist.grade ,
-      division : sessionExist.division ,
-      assignedBy : teacher._id , 
-      session : sessionExist._id
+      deadline: deadline || new Date(sessionExist.createdAt).setDate(new Date(sessionExist.createdAt).getDate() + 7), // 7 days
+      grade: sessionExist.grade,
+      division: sessionExist.division,
+      assignedBy: assignedByTeacherId,
+      isAdminAddIt, // ✅ Added this
     });
 
-    // console.log( newHomework , "tttttt");
-    
     await newHomework.save();
 
+    // ✅ Update session with homework ID
     await Session.findByIdAndUpdate(sessionId, { homework: newHomework._id });
 
     return res.status(201).json({ message: "✅ Homework linked to session", homework: newHomework });
+
   } catch (error) {
     console.error("❌ Error in addHomeworkToSession:=============>", error);
     return res.status(500).json({ message: "Internal server error" });
   }
 };
 
+export const update_Homework_service = async (req, res) => {
+  try {
+    const { homeworkId } = req.params;
+    const { _id: loginUserId, role: ROLE } = req.login_user;
+    const { title, description, availableFrom, deadline } = req.body;
+
+    // ✅ Get homework
+    const homework = await Homework.findById(homeworkId);
+    if (!homework) {
+      return res.status(404).json({ message: "❌ Homework not found" });
+    }
+
+    // ✅ Check roles
+    if (ROLE === system_role.ADMIN) {
+      const adminExist = await Admin.findOne({ user: loginUserId });
+      if (!adminExist) {
+        return res.status(403).json({ message: "❌ You are not a valid admin" });
+      }
+    } else if (ROLE === system_role.TEACHER) {
+      const teacher = await Teacher.findOne({ user: loginUserId });
+      if (!teacher) {
+        return res.status(403).json({ message: "❌ You are not a valid teacher" });
+      }
+    } else {
+      return res.status(403).json({ message: "❌ You are not allowed to perform this action" });
+    }
+
+    // ✅ Compare old values with new ones
+    const updates = {};
+    if (title && title !== homework.title) updates.title = title;
+    if (description && description !== homework.description) updates.description = description;
+    if (availableFrom && new Date(availableFrom).toISOString() !== homework.availableFrom.toISOString()) updates.availableFrom = availableFrom;
+    if (deadline && new Date(deadline).toISOString() !== homework.deadline.toISOString()) updates.deadline = deadline;
+
+    // ✅ If no changes
+    if (Object.keys(updates).length === 0) {
+      return res.status(400).json({ message: "❌ No changes detected" });
+    }
+
+    // ✅ Update homework
+    const updatedHomework = await Homework.findByIdAndUpdate(homeworkId, updates, { new: true });
+
+    return res.status(200).json({ message: "✅ Homework updated successfully", homework: updatedHomework });
+
+  } catch (error) {
+    console.error("❌ Error in updateHomework:", error);
+    return res.status(500).json({ message: "Internal server error" });
+  }
+};
+
+export const delete_Homework_service = async (req, res) => {
+  try {
+    const { homeworkId } = req.params;
+    const { _id: loginUserId, role: ROLE } = req.login_user;
+
+    // ✅ Get homework
+    const homework = await Homework.findById(homeworkId);
+    if (!homework) {
+      return res.status(404).json({ message: "❌ Homework not found" });
+    }
+
+    // ✅ Check roles
+    if (ROLE === system_role.ADMIN) {
+      const adminExist = await Admin.findOne({ user: loginUserId });
+      if (!adminExist) {
+        return res.status(403).json({ message: "❌ You are not a valid admin" });
+      }
+    } else if (ROLE === system_role.TEACHER) {
+      const teacher = await Teacher.findOne({ user: loginUserId });
+      if (!teacher) {
+        return res.status(403).json({ message: "❌ You are not a valid teacher" });
+      }
+    } else {
+      return res.status(403).json({ message: "❌ You are not allowed to perform this action" });
+    }
+
+    // ✅ Delete homework
+    await Homework.findByIdAndDelete(homeworkId);
+
+    // ✅ Remove homework reference from session
+    await Session.findByIdAndUpdate(homework.session, { $unset: { homework: "" } });
+
+    return res.status(200).json({ message: "✅ Homework deleted successfully" });
+
+  } catch (error) {
+    console.error("❌ Error in deleteHomework:", error);
+    return res.status(500).json({ message: "Internal server error" });
+  }
+};
 
 
-//===================== ✅ 2. Add Section to a Session
+
+
+
+
+
+//===================== ✅ 2. 👨‍🏫 Teacher  / admin ==> Section 
 export const add_Section_ToSession_service = async (req, res) => {
   try {
     const { sessionId } = req.params;
-    const {_id: teacherId} = req.login_user
-    const { title, description , availableFrom , deadline } = req.body;
+    const { _id: loginUserId, role: ROLE } = req.login_user;
+    const { title, description, availableFrom, deadline, teacherIdForAssign } = req.body;
 
-      if (!title) {
-        return res.status(400).json({ message: "❌ you must full the filed" });
-      }
-
-    const teacher = await Teacher.findOne({user : teacherId});
-    if (!teacher) {
-      return res.status(404).json({ message: "❌ teacher not found" });
+    if (!title) {
+      return res.status(400).json({ message: "❌ you must fill the title" });
     }
 
+    // ✅ Get session
     const sessionExist = await Session.findById(sessionId);
     if (!sessionExist) {
       return res.status(404).json({ message: "❌ Session not found" });
     }
 
+    let assignedByTeacherId;
+    let isAdminAddIt = false;
+
+    if (ROLE === system_role.TEACHER) {
+      // ✅ Teacher case
+      const teacher = await Teacher.findOne({ user: loginUserId });
+      if (!teacher) {
+        return res.status(404).json({ message: "❌ Teacher not found" });
+      }
+      assignedByTeacherId = teacher._id;
+
+    } else if (ROLE === system_role.ADMIN) {
+      // ✅ Admin case → teacherIdForAssign is required
+      if (!teacherIdForAssign) {
+        return res.status(400).json({ message: "❌ teacherIdForAssign is required for admins" });
+      }
+
+      const teacher = await Teacher.findById(teacherIdForAssign);
+      if (!teacher) {
+        return res.status(404).json({ message: "❌ Teacher not found for provided teacherIdForAssign" });
+      }
+      assignedByTeacherId = teacher._id;
+      isAdminAddIt = true;
+
+    } else {
+      return res.status(403).json({ message: "❌ You are not allowed to perform this action" });
+    }
+
+    // ✅ Create new section
     const newSection = new Section({
       title,
       description,
       session: sessionId,
       availableFrom: availableFrom || sessionExist.availableAt || sessionExist.createdAt,
-      deadline: deadline || new Date(sessionExist.createdAt).setDate(new Date(sessionExist.createdAt).getDate() + 7), // for 7 days
-      grade : sessionExist.grade ,
-      division : sessionExist.division ,
-      assignedBy : teacher._id , 
-      session : sessionExist._id
+      deadline: deadline || new Date(sessionExist.createdAt).setDate(new Date(sessionExist.createdAt).getDate() + 7),
+      grade: sessionExist.grade,
+      division: sessionExist.division,
+      assignedBy: assignedByTeacherId,
+      isAdminAddIt, // ✅ Added this
     });
 
-    // console.log( newHomework , "tttttt");
-    
     await newSection.save();
 
-    await Session.findByIdAndUpdate(sessionId, {  section: newSection._id });
+    // ✅ Update session with section ID
+    await Session.findByIdAndUpdate(sessionId, { section: newSection._id });
 
     return res.status(201).json({ message: "✅ Section added successfully", section: newSection });
+
   } catch (error) {
     console.error("❌ Error in addSectionToSession:", error);
     return res.status(500).json({ message: "Internal server error" });
   }
 };
 
+export const update_Section_service = async (req, res) => {
+  try {
+    const { sectionId } = req.params;
+    const { _id: loginUserId, role: ROLE } = req.login_user;
+    const { title, description, availableFrom, deadline } = req.body;
+
+    // ✅ Get section
+    const section = await Section.findById(sectionId);
+    if (!section) {
+      return res.status(404).json({ message: "❌ Section not found" });
+    }
+
+    // ✅ Check roles
+    if (ROLE === system_role.ADMIN) {
+      const adminExist = await Admin.findOne({ user: loginUserId });
+      if (!adminExist) {
+        return res.status(403).json({ message: "❌ You are not a valid admin" });
+      }
+    } else if (ROLE === system_role.TEACHER) {
+      const teacher = await Teacher.findOne({ user: loginUserId });
+      if (!teacher) {
+        return res.status(403).json({ message: "❌ You are not a valid teacher" });
+      }
+    } else {
+      return res.status(403).json({ message: "❌ You are not allowed to perform this action" });
+    }
+
+    // ✅ Compare old values with new ones
+    const updates = {};
+    if (title && title !== section.title) updates.title = title;
+    if (description && description !== section.description) updates.description = description;
+    if (availableFrom && new Date(availableFrom).toISOString() !== section.availableFrom.toISOString()) updates.availableFrom = availableFrom;
+    if (deadline && new Date(deadline).toISOString() !== section.deadline.toISOString()) updates.deadline = deadline;
+
+    // ✅ If no changes
+    if (Object.keys(updates).length === 0) {
+      return res.status(400).json({ message: "❌ No changes detected" });
+    }
+
+    // ✅ Update section
+    const updatedSection = await Section.findByIdAndUpdate(sectionId, updates, { new: true });
+
+    return res.status(200).json({ message: "✅ Section updated successfully", section: updatedSection });
+
+  } catch (error) {
+    console.error("❌ Error in updateSection:", error);
+    return res.status(500).json({ message: "Internal server error" });
+  }
+};
+
+export const delete_Section_service = async (req, res) => {
+  try {
+    const { sectionId } = req.params;
+    const { _id: loginUserId, role: ROLE } = req.login_user;
+
+    // ✅ Get section
+    const section = await Section.findById(sectionId);
+    if (!section) {
+      return res.status(404).json({ message: "❌ Section not found" });
+    }
+
+    // ✅ Check roles
+    if (ROLE === system_role.ADMIN) {
+      const adminExist = await Admin.findOne({ user: loginUserId });
+      if (!adminExist) {
+        return res.status(403).json({ message: "❌ You are not a valid admin" });
+      }
+    } else if (ROLE === system_role.TEACHER) {
+      const teacher = await Teacher.findOne({ user: loginUserId });
+      if (!teacher) {
+        return res.status(403).json({ message: "❌ You are not a valid teacher" });
+      }
+    } else {
+      return res.status(403).json({ message: "❌ You are not allowed to perform this action" });
+    }
+
+    // ✅ Delete section
+    await Section.findByIdAndDelete(sectionId);
+
+    // ✅ Remove section reference from session
+    await Session.findByIdAndUpdate(section.session, { $unset: { section: "" } });
+
+    return res.status(200).json({ message: "✅ Section deleted successfully" });
+
+  } catch (error) {
+    console.error("❌ Error in deleteSection:", error);
+    return res.status(500).json({ message: "Internal server error" });
+  }
+};
 
 
-// ✅ ====================3. Add Quiz to a Session
-export const add_Quiz_ToSession_service = async (req, res) => {
+
+
+
+
+
+
+// ✅ ====================3. 👨‍🏫 Teacher  / admin ==> videoQuiz 
+export const add_video_Quiz_ToSession_service = async (req, res) => {
   try {
     const { sessionId } = req.params;
-    const { quizzes } = req.body; // quizzes: [ { questionText, options, correctAnswer, showAtTime, passingGrade }, ... ]
+    const { videoQuizzes } = req.body; // quizzes: [ { questionText, options, correctAnswer, showAtTime, passingGrade }, ... ]
+    const { _id: loginUserId, role: ROLE } = req.login_user;
 
     const sessionExist = await Session.findById(sessionId);
     if (!sessionExist) {
       return res.status(404).json({ message: "❌ Session not found" });
     }
 
-    // Validate quizzes array
-    if (!Array.isArray(quizzes) || quizzes.length === 0) {
-      return res.status(400).json({ message: "❌ quizzes array is required and cannot be empty" });
-    }
-
-    // Check all quizzes have required fields
-    for (const quiz of quizzes) {
-      if (!quiz.questionText || !quiz.correctAnswer || !quiz.showAtTime) {
-        return res.status(400).json({ message: "❌ Each quiz must have questionText, correctAnswer, and showAtTime" });
+        // ✅ Validate videoQuizzes
+    if (videoQuizzes && Array.isArray(videoQuizzes)) {
+      for (let quiz of videoQuizzes) {
+        if (!quiz.questionText || !quiz.correctAnswer || !quiz.showAtTime) {
+          return res.status(400).json({ message: "❌ Each quiz must have questionText, correctAnswer, and showAtTime" });
+        }
+        if (!Array.isArray(quiz.options) || quiz.options.length < 2) {
+          return res.status(400).json({ message: "❌ Each quiz must have at least 2 options" });
+        }
       }
     }
 
-    // Push multiple quizzes at once
+    // ✅ Determine who is assigning
+    let isAdminAddIt = false;
+
+    if (ROLE === system_role.TEACHER) {
+      const teacher = await Teacher.findOne({ user: loginUserId });
+      if (!teacher) {
+        return res.status(404).json({ message: "❌ Teacher not found" });
+      }
+
+    } else if (ROLE === system_role.ADMIN) {
+      isAdminAddIt = true;
+
+    } else {
+      return res.status(403).json({ message: "❌ You are not allowed to perform this action" });
+    }
+
+    // ✅ Add extra fields to each quiz
+    const quizzesWithMeta = quizzes.map(q => ({
+      ...q,
+      isAdminAddIt
+    }));
+
+    // ✅ Push multiple quizzes at once
     const updatedSession = await Session.findByIdAndUpdate(
       sessionId,
       {
         $push: {
-          videoQuizzes: { $each: quizzes }
+          videoQuizzes: { $each: quizzesWithMeta }
         }
       },
       { new: true }
     );
 
-    return res.status(201).json({ message: "✅ Quizzes added to session", session: updatedSession });
+    return res.status(201).json({
+      message: "✅ Quizzes added to session",
+      session: updatedSession
+    });
   } catch (error) {
-    console.error("❌ Error in addQuizToSession:", error);
+    console.error("❌ Error in add_video_Quiz_ToSession_service:", error);
     return res.status(500).json({ message: "Internal server error" });
   }
 };
+
+export const update_video_Quiz_inSession_service = async (req, res) => {
+  try {
+    const { sessionId, quizId } = req.params;
+    const { questionText, options, correctAnswer, showAtTime, passingGrade } = req.body;
+    const { _id: loginUserId, role: ROLE } = req.login_user;
+
+    // ✅ تحقق من وجود السيشن
+    const sessionExist = await Session.findById(sessionId);
+    if (!sessionExist) {
+      return res.status(404).json({ message: "❌ Session not found" });
+    }
+
+    // ✅ تحقق من الصلاحيات
+    if (ROLE === system_role.ADMIN) {
+      const adminExist = await Admin.findOne({ user: loginUserId });
+      if (!adminExist) {
+        return res.status(403).json({ message: "❌ You are not a valid admin" });
+      }
+    } else if (ROLE === system_role.TEACHER) {
+      const teacher = await Teacher.findOne({ user: loginUserId });
+      if (!teacher) {
+        return res.status(403).json({ message: "❌ You are not a valid teacher" });
+      }
+    } else {
+      return res.status(403).json({ message: "❌ You are not allowed to perform this action" });
+    }
+
+    // ✅ ابحث عن الكويز
+    const quizIndex = sessionExist.videoQuizzes.findIndex(q => q._id.toString() === quizId);
+    if (quizIndex === -1) {
+      return res.status(404).json({ message: "❌ Quiz not found" });
+    }
+
+    const currentQuiz = sessionExist.videoQuizzes[quizIndex];
+    let isChanged = false;
+
+    // ✅ التحقق من القيم وتحديث فقط إذا في فرق
+    if (questionText && questionText !== currentQuiz.questionText) {
+      currentQuiz.questionText = questionText;
+      isChanged = true;
+    }
+    if (options && Array.isArray(options) && options.length >= 2 && JSON.stringify(options) !== JSON.stringify(currentQuiz.options)) {
+      currentQuiz.options = options;
+      isChanged = true;
+    }
+    if (correctAnswer && correctAnswer !== currentQuiz.correctAnswer) {
+      if (options && !options.includes(correctAnswer)) {
+        return res.status(400).json({ message: "❌ correctAnswer must be one of the options" });
+      }
+      currentQuiz.correctAnswer = correctAnswer;
+      isChanged = true;
+    }
+    if (showAtTime !== undefined && typeof showAtTime === "number" && showAtTime !== currentQuiz.showAtTime) {
+      currentQuiz.showAtTime = showAtTime;
+      isChanged = true;
+    }
+    // if (passingGrade !== undefined && passingGrade !== currentQuiz.passingGrade) {
+    //   currentQuiz.passingGrade = passingGrade;
+    //   isChanged = true;
+    // }
+
+    if (!isChanged) {
+      return res.status(200).json({ message: "✅ No changes detected" });
+    }
+
+    await sessionExist.save();
+
+    return res.status(200).json({
+      message: "✅ Video quiz updated successfully",
+      updatedQuiz: currentQuiz
+    });
+
+  } catch (error) {
+    console.error("❌ Error in update_video_Quiz_inSession_service:", error);
+    return res.status(500).json({ message: "Internal server error" });
+  }
+};
+
+
+export const delete_video_Quiz_fromSession_service = async (req, res) => {
+  try {
+    const { sessionId, quizId } = req.params;
+    const { _id: loginUserId, role: ROLE } = req.login_user;
+
+    // ✅ تحقق من وجود السيشن
+    const sessionExist = await Session.findById(sessionId);
+    if (!sessionExist) {
+      return res.status(404).json({ message: "❌ Session not found" });
+    }
+
+    // ✅ Check roles
+    if (ROLE === system_role.ADMIN) {
+      const adminExist = await Admin.findOne({ user: loginUserId });
+      if (!adminExist) {
+        return res.status(403).json({ message: "❌ You are not a valid admin" });
+      }
+    } else if (ROLE === system_role.TEACHER) {
+      const teacher = await Teacher.findOne({ user: loginUserId });
+      if (!teacher) {
+        return res.status(403).json({ message: "❌ You are not a valid teacher" });
+      }
+    } else {
+      return res.status(403).json({ message: "❌ You are not allowed to perform this action" });
+    }
+
+    // ✅ تحقق من وجود الكويز واحذفه
+    const quizIndex = sessionExist.videoQuizzes.findIndex(q => q._id.toString() === quizId);
+    if (quizIndex === -1) {
+      return res.status(404).json({ message: "❌ Quiz not found" });
+    }
+
+    sessionExist.videoQuizzes.splice(quizIndex, 1);
+    await sessionExist.save();
+
+    return res.status(200).json({ message: "✅ Video quiz deleted successfully" });
+
+  } catch (error) {
+    console.error("❌ Error in delete_video_Quiz_fromSession_service:", error);
+    return res.status(500).json({ message: "Internal server error" });
+  }
+};
+
+
+
 
 
 
@@ -704,155 +1158,5 @@ export const add_Quiz_ToSession_service = async (req, res) => {
 
 // any thing below is under testing
 //===========================================
-
-export const update_teacher_service = async (req, res) => {
-  try {
-    // 1️⃣ Get logged-in user email
-    const { email } = req.login_user;
-
-    // 2️⃣ Find user
-    const user = await User.findOne({ email });
-    if (!user) {
-      return res.status(404).json({ message: "❌ User not found" });
-    }
-
-    // 3️⃣ Find teacher linked with this user
-    const teacher = await Teacher.findOne({ user: user._id });
-    if (!teacher) {
-      return res.status(404).json({ message: "❌ Teacher not found" });
-    }
-
-    // 4️⃣ Extract updates from body
-    const { name, email: newEmail, phoneNumber, ...teacherUpdates } = req.body;
-
-    let isChanged = false;
-    const userUpdates = {};
-
-    // ✅ Update name
-    if (name && user.name !== name) {
-      userUpdates.name = name;
-      isChanged = true;
-    }
-
-    // ✅ Update email
-    if (newEmail) {
-      const normalizedEmail = newEmail.trim().toLowerCase();
-
-      if (normalizedEmail !== user.email) {
-        const emailExists = await User.findOne({
-          email: normalizedEmail,
-          _id: { $ne: user._id },
-        });
-
-        if (emailExists) {
-          return res.status(400).json({ message: "❌ Email already in use" });
-        }
-
-        userUpdates.email = normalizedEmail;
-        isChanged = true;
-      }
-    }
-
-    // ✅ Update phone number (with encryption/decryption)
-    if (phoneNumber) {
-      const decryptedPhone = await decryption({
-        cipher: user.phoneNumber,
-        secret_key: process.env.PHONE_ENCRYPTION_SECRET,
-      });
-
-      if (decryptedPhone !== phoneNumber) {
-        const encryptedPhone = await encryption({
-          value: phoneNumber,
-          secret_key: process.env.PHONE_ENCRYPTION_SECRET,
-        });
-        userUpdates.phoneNumber = encryptedPhone;
-        isChanged = true;
-      }
-    }
-
-    // ✅ Teacher-specific updates
-    for (let key in teacherUpdates) {
-      if (
-        teacherUpdates[key] !== undefined &&
-        teacher[key] != teacherUpdates[key]
-      ) {
-        isChanged = true;
-        break;
-      }
-    }
-
-    if (!isChanged) {
-      return res.status(400).json({
-        message:
-          "⚠️ No changes detected. Data is already up to date.",
-        teacher,
-        user,
-      });
-    }
-
-    // ✅ Apply updates
-    let updatedUser = user;
-    if (Object.keys(userUpdates).length > 0) {
-      updatedUser = await User.findByIdAndUpdate(
-        user._id,
-        { $set: userUpdates },
-        { new: true, select: "-password" }
-      );
-    }
-
-    let updatedTeacher = teacher;
-    if (Object.keys(teacherUpdates).length > 0) {
-      updatedTeacher = await Teacher.findByIdAndUpdate(
-        teacher._id,
-        { $set: teacherUpdates },
-        { new: true }
-      );
-    }
-
-    return res.status(200).json({
-      message: "✅ Teacher & User data updated successfully",
-      teacher: updatedTeacher,
-      user: updatedUser,
-    });
-  } catch (error) {
-    console.log("❌ Error from update_teacher_service =====>", error);
-    return res.status(500).json({ message: "Internal server error" });
-  }
-};
-
-
-export const delete_teacher_service = async (req, res) => {
-  try {
-    // 1️⃣ Get logged-in user id
-    const { _id } = req.login_user;
-
-    // 2️⃣ Delete user
-    const deletedUser = await User.findByIdAndDelete(_id);
-    if (!deletedUser) {
-      return res.status(404).json({ message: "❌ No account found with this ID" });
-    }
-
-    // 3️⃣ Delete related Teacher document
-    const deletedTeacher = await Teacher.findOneAndDelete({ user: _id });
-
-    // 4️⃣ Delete other relations if needed (e.g., Sessions, Exams) 
-    // ⚠️ لو عايز نمسح الـ Sessions المرتبطة بالمدرس
-    if (deletedTeacher?.Sessions?.length > 0) {
-      await Session.deleteMany({ _id: { $in: deletedTeacher.Sessions } });
-    }
-
-    if (deletedTeacher?.exams?.length > 0) {
-      await Exam.deleteMany({ _id: { $in: deletedTeacher.exams } });
-    }
-
-    // 5️⃣ Return success
-    return res.status(200).json({
-      message: "✅ Teacher account and related data deleted successfully",
-    });
-  } catch (error) {
-    console.log("❌ Error from delete_teacher_service =====>", error);
-    return res.status(500).json({ message: "Internal server error" });
-  }
-};
 
 
