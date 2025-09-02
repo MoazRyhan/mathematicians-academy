@@ -1,0 +1,70 @@
+import  express  from "express"
+const teacher_controller = express()
+import * as teacher_services from "./services/index.js"
+import { authentication_middleware } from '../../Middlewares/authentication_middleware.js';
+import { error_handler_middleware } from "../../Middlewares/error_handler_middleware.js"
+import { authorization_middleware } from "../../Middlewares/authentication_middleware.js";
+import { system_role } from "../../Constants/constants.js";
+
+
+const { TEACHER , ADMIN } = system_role
+
+
+
+// ====================================== this is all for the admin and the teacher
+
+// homework  part
+teacher_controller.post("/homework/:sessionId", authentication_middleware() , authorization_middleware([TEACHER , ADMIN ]) , error_handler_middleware(teacher_services.add_Homework_ToSession_service)) 
+
+teacher_controller.patch("/homework/:homeworkId",authentication_middleware(),authorization_middleware([TEACHER, ADMIN]),error_handler_middleware(teacher_services.update_Homework_service));
+
+teacher_controller.delete("/homework/:homeworkId",authentication_middleware(),authorization_middleware([TEACHER, ADMIN]),error_handler_middleware(teacher_services.delete_Homework_service));
+
+
+
+// section part
+teacher_controller.post("/section/:sessionId" , authentication_middleware() , authorization_middleware([TEACHER , ADMIN ])  , error_handler_middleware(teacher_services.add_Section_ToSession_service)) 
+
+teacher_controller.patch("/section/:sectionId",authentication_middleware(),authorization_middleware([TEACHER, ADMIN]),error_handler_middleware(teacher_services.update_Section_service));
+
+teacher_controller.delete("/section/:sectionId",authentication_middleware(),authorization_middleware([TEACHER, ADMIN]),error_handler_middleware(teacher_services.delete_Section_service));
+
+
+
+// quiz part
+teacher_controller.post("/video_quiz/:sessionId"   , authentication_middleware() , authorization_middleware([TEACHER , ADMIN ])  ,  error_handler_middleware(teacher_services.add_video_Quiz_ToSession_service)) 
+
+teacher_controller.patch("/video-quiz/:sessionId/:quizId",authentication_middleware(),authorization_middleware([TEACHER, ADMIN]),error_handler_middleware(teacher_services.update_video_Quiz_inSession_service));
+
+teacher_controller.delete("/video-quiz/:sessionId/:quizId",authentication_middleware(),authorization_middleware([TEACHER, ADMIN]),error_handler_middleware(teacher_services.delete_video_Quiz_fromSession_service));
+
+
+
+// =====================================================================================================================
+
+teacher_controller.use(authentication_middleware() , authorization_middleware([TEACHER]) )
+
+// crud
+teacher_controller.get(  "/get_teacher_data"   , error_handler_middleware(teacher_services.get_teacher_data_service)  ) 
+
+
+// session part
+teacher_controller.post("/add_session"   , error_handler_middleware(teacher_services.add_Session_teacher_service_teacher )  ) 
+teacher_controller.put("/update_session/:sessionId", error_handler_middleware(teacher_services.update_session_teacher_service_teacher )  ) 
+teacher_controller.delete("/delete_session/:sessionId", error_handler_middleware(teacher_services.delete_session_teacher_service_teacher )  ) 
+
+// exam part 
+teacher_controller.post(  "/add_exam_T" , error_handler_middleware(teacher_services.add_exam_service_teacher));
+teacher_controller.put("/update_exam_T/:examId", error_handler_middleware(teacher_services.update_exam_service_teacher));
+teacher_controller.delete("/delete_exam_T/:examId", error_handler_middleware(teacher_services.delete_exam_service_teacher)); 
+
+
+
+
+
+
+
+
+
+
+export default teacher_controller

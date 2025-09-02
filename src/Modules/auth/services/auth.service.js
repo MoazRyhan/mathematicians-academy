@@ -1,17 +1,68 @@
 import { compareSync, hashSync } from "bcrypt";
 import User from "../../../DB/Models/user.model.js";
-import  jwt  from 'jsonwebtoken';
-import { v4 as uuidv4 } from 'uuid';
+import jwt from "jsonwebtoken";
+import { v4 as uuidv4 } from "uuid";
 import { STUDENT_ENUMS } from "../../../Constants/constants.js"; // Separated enums
-import { cloudinary } from './../../../config/cloudinary.config.js';
+import { cloudinary } from "./../../../config/cloudinary.config.js";
 import { system_role } from "../../../Constants/constants.js";
 import Student from "../../../DB/Models/student.model.js";
-import blackList from './../../../DB/Models/blackList.model.js';
+import blackList from "./../../../DB/Models/blackList.model.js";
 import Parent from "../../../DB/Models/parent.model.js";
 import { send_Email_event } from "../../../config/send_email_verify.config.js";
+import { decryption, encryption } from "../../../Utils/encryption.utils.js";
+import { generateSequentialStudentCode } from "../../../Common/commons.js";
+import Admin from "../../../DB/Models/admin.model.js";
+
+//================================== admin
+
+/**
+ * Create new admin account ( and this is just for one time )
+ */
+export const create_admin_service = async (req, res) => {
+  try {
+    const { userId } = req.body;
+
+    // ✅ 1) تحقق هل يوجد Admin واحد بالفعل؟
+    const existingAdminsCount = await Admin.countDocuments();
+    if (existingAdminsCount > 0) {
+      return res.status(400).json({
+        message: "❌ There is already an Admin account. You cannot create another one.",
+      });
+    }
+
+    // ✅ 2) تحقق من وجود المستخدم
+    const user = await User.findById(userId);
+    if (!user) {
+      return res.status(404).json({ message: "❌ User not found" });
+    }
+
+    // ✅ 3) تحقق من أن هذا المستخدم ليس مرتبطًا مسبقًا كـ Admin
+    const existingAdmin = await Admin.findOne({ user: userId });
+    if (existingAdmin) {
+      return res.status(400).json({ message: "❌ This user is already an Admin" });
+    }
 
 
+    // remake the admin
+    user.role = system_role.ADMIN 
+    await user.save()
 
+    // ✅ 4) إنشاء الـ Admin
+    const newAdmin = new Admin({ user: userId });
+    await newAdmin.save();
+
+    return res.status(201).json({
+      message: "✅ Admin created successfully",
+      admin: newAdmin,
+    });
+  } catch (error) {
+    console.error("❌ Error in create_admin_service:", error);
+    return res.status(500).json({ message: "Internal server error" });
+  }
+};
+
+
+//================================== normal users
 
 export const sign_up_service = async (req, res) => {
   try {
@@ -36,87 +87,137 @@ export const sign_up_service = async (req, res) => {
       nationalId,
       attendanceLocation,
       center,
-      parent,
-      assistant
     } = req.body;
 
-    // console.log( "here " , req.body , req.files );
-    
+    const files = req.files;
 
-    const files = req.files; // Multer should handle file upload (array of 2 files)
-
-    // 1.1 Check role
+    // 1️⃣ Check role
     if (role !== system_role.STUDENT) {
       return res.status(409).json({ message: "there is some thing wrong" });
     }
 
-    // 1.2 Check division
-    if (grade == STUDENT_ENUMS.GRADE.THIRD_SECONDARY  && division == null  ) {
-      return res.status(409).json({ message: "must full the division" });
-    }
-
-    // 1.3 Check division
-    if ( grade == STUDENT_ENUMS.GRADE.SECOND_SECONDARY && division == null ) {
-      return res.status(409).json({ message: "must full the division" });
-    }
-
-    // 2. Check password match
-    if (password !== rePassword) {
-      return res.status(409).json({ message: "Password must match RePassword" });
-    }
-
-    // 3. Validate required fields
+    // 2️⃣ Check division requirement
     if (
-      !name || !email || !password || !role || !phoneNumber || !fullName || !birthDate ||
-      !school || !grade || !governorate || !area || !address || !parentPhoneNumber ||
+      (grade == STUDENT_ENUMS.GRADE.THIRD_SECONDARY ||
+        grade == STUDENT_ENUMS.GRADE.SECOND_SECONDARY) &&
+      division == null
+    ) {
+      return res.status(409).json({ message: "must fill the division" });
+    }
+
+    // 3️⃣ Check password match
+    if (password !== rePassword) {
+      return res
+        .status(409)
+        .json({ message: "Password must match RePassword" });
+    }
+
+    // 4️⃣ Validate required fields
+    if (
+      !name ||
+      !email ||
+      !password ||
+      !role ||
+      !phoneNumber ||
+      !fullName ||
+      !birthDate ||
+      !school ||
+      !grade ||
+      !governorate ||
+      !area ||
+      !address ||
+      !parentPhoneNumber ||
       !attendanceLocation
     ) {
-      return res.status(400).json({ message: "Please fill in all required fields" });
+      return res
+        .status(400)
+        .json({ message: "Please fill in all required fields" });
     }
 
-    // 4. Check if user already exists
+    // 5️⃣ Check if user already exists
     const existingUser = await User.findOne({ email });
     if (existingUser) {
       return res.status(400).json({ message: "Email already registered" });
     }
 
-    // 5. Hash password
+    // 6️⃣ Hash password
     const hashedPassword = hashSync(password, +process.env.PASSWORD_SALT);
 
-    // 6. Prepare nationalIdImage
-    let nationalIdImage = { images: [], folderId: null };
-
-    if (grade === STUDENT_ENUMS.GRADE.THIRD_SECONDARY) { 
-      if (!nationalId || !files || files.length !== 2) {
-        return res.status(400).json({ message: "National ID number and two photos (front & back) are required for third secondary" });
-      }
-
-      const folderPath = `${process.env.FOLDER_NAME_CLOUDINARY}/User/IdPhotos${nationalId}`;
-      const uploadedImages = [];
-
-      for (const file of files) {
-        const { public_id, secure_url } = await cloudinary().uploader.upload(file.path, {
-          folder: folderPath
-        });
-        uploadedImages.push({ public_id, secure_url });
-      }
-
-      nationalIdImage = {
-        images: uploadedImages,
-        folderId: folderPath
-      };
-    }
-
-    // 7. Create User
+    // 7️⃣ Create User first
     const createdUser = await User.create({
       name,
       email,
       password: hashedPassword,
       role,
-      phoneNumber
+      phoneNumber: await encryption({
+        value: phoneNumber,
+        secret_key: process.env.PHONE_ENCRYPTION_SECRET,
+      }),
     });
 
-    // 8. Create Student
+    // 8️⃣ Prepare nationalIdImage (upload only for third secondary)
+    let nationalIdImage = { images: [], folderId: null };
+
+    if (grade === STUDENT_ENUMS.GRADE.THIRD_SECONDARY) {
+      if (!nationalId || !files || files.length !== 2) {
+        return res.status(400).json({
+          message:
+            "National ID number and two photos (front & back) are required for third secondary",
+        });
+      }
+
+      const folderPath = `${process.env.FOLDER_NAME_CLOUDINARY}/User/IdPhotos/${createdUser._id}`;
+      const uploadedImages = [];
+
+      for (const file of files) {
+        let uploadResult;
+        try {
+          uploadResult = await cloudinary().uploader.upload(file.path, {
+            folder: folderPath,
+          });
+        } catch (error) {
+          console.error("❌ Cloudinary upload failed:", error);
+          return res
+            .status(500)
+            .json({ message: "❌ Failed to upload one or more ID images" });
+        }
+
+        if (!uploadResult || !uploadResult.secure_url) {
+          return res
+            .status(500)
+            .json({ message: "❌ Image upload unsuccessful" });
+        }
+
+        uploadedImages.push({
+          public_id: uploadResult.public_id,
+          secure_url: uploadResult.secure_url,
+        });
+      }
+
+      nationalIdImage = {
+        images: uploadedImages,
+        folderId: folderPath,
+      };
+    }
+
+    // 9️⃣ Encrypt parent phone number
+    const encryptedParentPhoneNumber = await encryption({
+      value: parentPhoneNumber,
+      secret_key: process.env.PHONE_ENCRYPTION_SECRET,
+    });
+
+    // 🔟 Hash national ID (store encrypted version)
+    const encryptionNationalId = nationalId
+      ? await encryption({
+          value: nationalId,
+          secret_key: process.env.NATIONAL_ID_SECRET_KEY,
+        })
+      : null;
+
+    // 1️⃣1️⃣ Generate unique student code
+    const studentCode = await generateSequentialStudentCode(grade, division);
+
+    // 1️⃣2️⃣ Create Student
     await Student.create({
       user: createdUser._id,
       fullName,
@@ -127,23 +228,22 @@ export const sign_up_service = async (req, res) => {
       governorate,
       area,
       address,
-      parentPhoneNumber,
+      parentPhoneNumber: encryptedParentPhoneNumber,
       fatherJob,
       motherJob,
-      nationalId,
+      nationalId: encryptionNationalId,
       nationalIdImage,
       attendanceLocation,
       center,
-      parent,
-      assistant 
+      studentCode,
     });
 
-    // 9. Response
+    // ✅ Success response
     return res.status(201).json({
-      message: "Student registered successfully",
-      userId: createdUser._id
+      message: "Student registered successfully ",
+      userId: createdUser._id,
+      studentCode,
     });
-
   } catch (error) {
     console.error("Error in signup service==========>", error);
     return res.status(500).json({ message: "Internal server error" });
@@ -151,97 +251,39 @@ export const sign_up_service = async (req, res) => {
 };
 
 
-export const sign_up_parent_service = async (req, res) => {
-  try {
-    const {
-      name,
-      email,
-      password,
-      rePassword,
-      phoneNumber,
-      role,
-      studentName,
-      studentNationalId
-    } = req.body
-
-    // console.log( req.body);
-    
-
-    // 1. Ensure that the role is Parent
-    if (role !== system_role.PARENT) {
-      return res.status(403).json({ message: "Only parents can register in this endpoint" });
-    }
-
-    // 2. Validate required fields
-    if (!name || !email || !password || !rePassword || !phoneNumber || !studentName || !studentNationalId) {
-      return res.status(400).json({ message: "Please fill in all required fields" });
-    }
-
-    // 3. Check if passwords match
-    if (password !== rePassword) {
-      return res.status(400).json({ message: "Password must match RePassword" });
-    }
-
-    // 4. Check if the email is already registered
-    const existingUser = await User.findOne({ email });
-    if (existingUser) {
-      return res.status(400).json({ message: "Email already registered" });
-    }
-
-    // 5. Find student by name and national ID
-    const existingStudent = await Student.findOne({
-      fullName: studentName,
-      nationalId: studentNationalId
-    });
-
-    if (!existingStudent) {
-      return res.status(404).json({ message: "Student with this name and national ID not found" });
-    }
-
-    // 6. Hash the password
-    const hashedPassword = hashSync(password, +process.env.PASSWORD_SALT);
-
-    // 7. Create the user
-    const createdUser = await User.create({
-      name,
-      email,
-      password: hashedPassword,
-      role: system_role.PARENT,
-      phoneNumber
-    });
-
-    // 8. Create the Parent document and link it to the student
-    await Parent.create({
-      user: createdUser._id,
-      students: [existingStudent._id]
-    });
-
-    // 9. Send success response
-    return res.status(201).json({
-      message: "Parent registered successfully and linked to student",
-      userId: createdUser._id,
-      studentId: existingStudent._id
-    });
-
-  } catch (error) {
-    console.error("Error in parent signup ==========>", error);
-    return res.status(500).json({ message: "Internal server error" });
-  }
-};
-
-
 export const login_service = async (req, res) => {
   try {
-
     const { email, password } = req.body;
 
+    // find the email
+    const user = await User.findOne({ email });
+    if (!user) {
+      return res.status(404).json({ message: "this email is not exists" });
+    }
 
-        // find the email 
-    const user = await User.findOne({email})
-    if (!user) { return res.status(404).json({ message : "this email is not exists" }) }
+    // find the student
+    const ComingUser = await User.findById(user._id);
+    if (!ComingUser) {
+      return res.status(404).json({ message: "this email is not exists" });
+    }
 
+    if (ComingUser.role == system_role.STUDENT) {
+      const student = await Student.findOne({ user: ComingUser._id });
+      if (  student.status == STUDENT_ENUMS.STATUS.PENDING ) {
+        return res.status(409).json({
+          message:
+            "this application is pending wait till the admin give the approvement",
+        });
+      } else if (student.status == STUDENT_ENUMS.STATUS.REJECTED) {
+        return res.status(404).json({
+          message:
+            "❌ your application is rejected call the MS or try again later",
+        });
+      }
+    }
 
-    
+    // 1 check the status
+
     // check the password
     const pass_right = compareSync(password, user.password);
 
@@ -250,7 +292,6 @@ export const login_service = async (req, res) => {
         .status(409)
         .json({ message: "the email or the pass is wrong" });
     }
-
 
     // make the token
     const access_token = jwt.sign(
@@ -270,18 +311,17 @@ export const login_service = async (req, res) => {
       }
     );
 
-    
     // send the data
     if (user) {
+      return res.status(201).json({
+        message: " login is success",
+        access_token: access_token,
+        refresh_token: refresh_token,
+      });
+    } else {
       return res
-        .status(201)
-        .json({
-          message: " login is success",
-          access_token: access_token,
-          refresh_token: refresh_token,
-        });
-      } else {
-        return res.status(409).json({ message: "failed to login try again later " });
+        .status(409)
+        .json({ message: "failed to login try again later " });
     }
   } catch (error) {
     console.log("error in login ===========> ", error);
@@ -289,58 +329,62 @@ export const login_service = async (req, res) => {
   }
 };
 
-
-
-export const sign_out_service = async ( req , res  ) => {
-
-
-    try {        
-    const { token }= req.login_user 
+export const sign_out_service = async (req, res) => {
+  try {
+    const { token } = req.login_user;
     // console.log(token , token_id);
-    
-    const if_log_out = await blackList.findOne({token_id :token.token_id , expiration_data : token.expiration_data})
-    if ( if_log_out) {return res.status(404).json({massage : "this email is already signed_out"}) }
 
-    await blackList.create( { token_id : token.token_id , expiration_data : token.expiration_data } )
-        
-    return res.status(200).json({massage : "user has been sign-out successfully"})
-
-    } catch (error) {
-        console.log(  "error from signout =======>"  , error );
-       return res.status(500).json({ message : "internal server error "})
+    const if_log_out = await blackList.findOne({
+      token_id: token.token_id,
+      expiration_data: token.expiration_data,
+    });
+    if (if_log_out) {
+      return res
+        .status(404)
+        .json({ massage: "this email is already signed_out" });
     }
-    
-    
+
+    await blackList.create({
+      token_id: token.token_id,
+      expiration_data: token.expiration_data,
+    });
+
+    return res
+      .status(200)
+      .json({ massage: "user has been sign-out successfully" });
+  } catch (error) {
+    console.log("error from signout =======>", error);
+    return res.status(500).json({ message: "internal server error " });
   }
+};
 
+export const refresh_token_service = async (req, res) => {
+  try {
+    const { refresh_token } = req.headers;
 
+    // decoding data
+    const decoding_refresh_token = jwt.verify(
+      refresh_token,
+      process.env.JWT_REFRESH_TOKEN_SECRET_KEY
+    );
 
-export const refresh_token_service = async ( req , res ) => {
-      
-      try {
-      const {refresh_token} = req.headers
-      
-      // decoding data
-       const decoding_refresh_token = jwt.verify( refresh_token , process.env.JWT_REFRESH_TOKEN_SECRET_KEY )
-          
-  
-      // rasta of decoding data
-       const access_token = jwt.sign( { _id:decoding_refresh_token._id , email:decoding_refresh_token.email } , process.env.JWT_ACCESS_TOKEN_SECRET_KEY , {expiresIn:process.env.EXPIRATION_DATA_ACCESS_TOKEN , jwtid:uuidv4() }  ) 
-      return res.status(201).json({ massage:" access token has been refreshed " , access_token })
-                  
-      } catch (error) {
-          console.log(  "error from refresh token =======>"  , error );
-        return  res.status(500).json({ message : "internal server error "})
-      }
-  
-  
-  
+    // rasta of decoding data
+    const access_token = jwt.sign(
+      { _id: decoding_refresh_token._id, email: decoding_refresh_token.email },
+      process.env.JWT_ACCESS_TOKEN_SECRET_KEY,
+      { expiresIn: process.env.EXPIRATION_DATA_ACCESS_TOKEN, jwtid: uuidv4() }
+    );
+    return res
+      .status(201)
+      .json({ massage: " access token has been refreshed ", access_token });
+  } catch (error) {
+    console.log("error from refresh token =======>", error);
+    return res.status(500).json({ message: "internal server error " });
   }
+};
 
-//                  any thing above is under testing 
-// ==================================================
-
-
+// any thing below is under testing
+//===========================================
 
 export const forget_password_service = async (req, res) => {
   try {
@@ -377,15 +421,11 @@ export const forget_password_service = async (req, res) => {
     }
 
     return res.status(200).json({ message: "The OTP has been sent" });
-
   } catch (error) {
     console.error("Error in forget password service:", error);
     return res.status(500).json({ message: "Internal server error" });
   }
 };
-
-
-
 
 // Service to verify OTP and change password
 export const verify_forget_password_service = async (req, res) => {
@@ -418,7 +458,9 @@ export const verify_forget_password_service = async (req, res) => {
     const updated_user = await user.save();
 
     if (!updated_user) {
-      return res.status(409).json({ message: "Something went wrong while updating password" });
+      return res
+        .status(409)
+        .json({ message: "Something went wrong while updating password" });
     }
 
     // Send confirmation email
@@ -426,18 +468,17 @@ export const verify_forget_password_service = async (req, res) => {
       to: user.email,
       subject: "Secure your account (mathematicians-academy)",
       html: `<h1>From your account ${user.email} at mathematicians-academy</h1>
-             <p>Your password has been changed. If this was not you, please contact us immediately.</p>`
+             <p>Your password has been changed. If this was not you, please contact us immediately.</p>`,
     });
 
-    return res.status(200).json({ message: "Password has been changed successfully" });
-
+    return res
+      .status(200)
+      .json({ message: "Password has been changed successfully" });
   } catch (error) {
     console.error("Error in verify forget password service:", error);
     return res.status(500).json({ message: "Internal server error" });
   }
 };
-
-
 
 // Service to reset password directly (no OTP)
 export const reset_password_service = async (req, res) => {
@@ -446,7 +487,9 @@ export const reset_password_service = async (req, res) => {
 
     // Check if passwords match
     if (new_password !== confirm_password) {
-      return res.status(400).json({ message: "Password does not match confirmation password" });
+      return res
+        .status(400)
+        .json({ message: "Password does not match confirmation password" });
     }
 
     // Find user by email
@@ -471,7 +514,7 @@ export const reset_password_service = async (req, res) => {
       to: user.email,
       subject: "Secure your account (mathematicians-academy)",
       html: `<h1>From your account ${user.email} at mathematicians-academy</h1>
-             <p>Your password has been changed. If this was not you, please contact us immediately.</p>`
+             <p>Your password has been changed. If this was not you, please contact us immediately.</p>`,
     });
 
     // Example: Add token to blacklist (optional, based on your auth logic)
@@ -480,19 +523,11 @@ export const reset_password_service = async (req, res) => {
     //   expires_at: new Date(Date.now() + 1000 * 60 * 60 * 24) // 24 hours
     // });
 
-    return res.status(200).json({ message: "Password has been reset successfully" });
-
+    return res
+      .status(200)
+      .json({ message: "Password has been reset successfully" });
   } catch (error) {
     console.error("Error in reset password service:", error);
     return res.status(500).json({ message: "Internal server error" });
   }
 };
-
-
-
-
-
-
-
-
-

@@ -1,6 +1,6 @@
 export * from './accountant.model.js'
 export * from './assistant.model.js'
-export * from './course.model.js'
+export * from './session.model.js'
 export * from './errorsFiles.model.js'
 export * from './exam.model.js'
 export * from './parent.model.js'

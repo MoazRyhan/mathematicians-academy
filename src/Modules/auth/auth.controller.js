@@ -12,6 +12,7 @@ auth_controller.post( "/signup/parent"  , error_handler_middleware(auth_services
 auth_controller.post( "/login"  , error_handler_middleware(auth_services.login_service  ))
 auth_controller.post( "/reToken"  , error_handler_middleware(auth_services.refresh_token_service  ))
 
+
 auth_controller.patch("/forget_pass" , error_handler_middleware(auth_services.forget_password_service) )
 auth_controller.post("/verify_forget_pass" , error_handler_middleware(auth_services.verify_forget_password_service) )
 auth_controller.put("/reset_pass" , error_handler_middleware(auth_services.reset_password_service) )
@@ -19,6 +20,8 @@ auth_controller.put("/reset_pass" , error_handler_middleware(auth_services.reset
 auth_controller.post("/signout" , authentication_middleware() , error_handler_middleware(auth_services.sign_out_service) )
 
 
+// admin creation   ====> we will use this for one time
+auth_controller.post("/create", error_handler_middleware(auth_services.create_admin_service));
 
 
 

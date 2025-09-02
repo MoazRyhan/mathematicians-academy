@@ -4,8 +4,9 @@ const teacherSchema = new mongoose.Schema({
   
   user: { type: mongoose.Schema.Types.ObjectId, ref: 'User', required: true },
   
+  admin: [{ type: mongoose.Schema.Types.ObjectId, ref: 'Admin' }],
   
-  courses: [{ type: mongoose.Schema.Types.ObjectId, ref: 'Course' }],
+  Sessions: [{ type: mongoose.Schema.Types.ObjectId, ref: 'Session' }],
   
   
   exams: [{ type: mongoose.Schema.Types.ObjectId, ref: 'Exam' }],
@@ -15,6 +16,7 @@ const teacherSchema = new mongoose.Schema({
   
   
   assistants: [{ type: mongoose.Schema.Types.ObjectId, ref: 'Assistant' }],
+
 }, { timestamps: true });
 
  const Teacher = mongoose.models.Teacher || mongoose.model('Teacher', teacherSchema);

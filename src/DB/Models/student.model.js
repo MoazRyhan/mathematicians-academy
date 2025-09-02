@@ -50,7 +50,7 @@ const studentSchema = new mongoose.Schema({
     required: true
   },
 
-  center: { type: mongoose.Schema.Types.ObjectId, ref: 'Center' },
+  center: { type: mongoose.Schema.Types.ObjectId, ref: 'Center' }, // i thing there is no need for this
 
   status: {
     type: String,
@@ -64,22 +64,40 @@ const studentSchema = new mongoose.Schema({
 
   assistant: { type: mongoose.Schema.Types.ObjectId, ref: 'Assistant' },
 
+  assistantName: { type: String} ,
+
   totalPoints: { type: Number, default: 0 },
 
   redeemablePoints: { type: Number, default: 0 },
 
-  coursesProgress: [{
-    course: { type: mongoose.Schema.Types.ObjectId, ref: 'Course' },
-    isPaid: { type: Boolean, default: false },
-    paymentDetails: { type: mongoose.Schema.Types.ObjectId, ref: 'Payment' },
-    expirationDate: { type: Date },
-    watchedVideoProgress: { type: Number, default: 0 }, // From 0 to 100
-    submissions: [{ type: mongoose.Schema.Types.ObjectId, ref: 'Submission' }],
-    isSectionSubmitted: { type: Boolean, default: false },
-    isHomeworkSubmitted: { type: Boolean, default: false },
-    isQuizSubmitted: { type: Boolean, default: false },
-    attendanceRegistered: { type: Boolean, default: false },
-  }],
+  sessionCredits: { type: Number, default: 0 },
+
+  group: { type: mongoose.Schema.Types.ObjectId, ref: 'Group' },
+
+sessionProgress: [{
+  session: { type: mongoose.Schema.Types.ObjectId, ref: 'Session' },
+
+  isPaid: { type: Boolean, default: false },
+
+  paymentDetails: { type: mongoose.Schema.Types.ObjectId, ref: 'Payment' },
+
+  expirationDate: { type: Date },
+
+  watchedVideoProgress: { type: Number, default: 0 }, // From 0 to 100
+
+  homeworkSubmission: { type: mongoose.Schema.Types.ObjectId, ref: 'Submission' },
+  sectionSubmission: { type: mongoose.Schema.Types.ObjectId, ref: 'Submission' },
+  examSubmission: { type: mongoose.Schema.Types.ObjectId, ref: 'Submission' },
+
+  isSectionSubmitted: { type: Boolean, default: false },
+  isHomeworkSubmitted: { type: Boolean, default: false },
+  isExamSubmitted: { type: Boolean, default: false }, // this for the exam after the session or as you name it quiz  & and also for the monthly exams
+
+  isQuizSubmitted: { type: Boolean, default: false }, // this for video quiz
+
+  attendanceRegistered: { type: Boolean, default: false },
+}],
+
 
 }, { timestamps: true });
 
