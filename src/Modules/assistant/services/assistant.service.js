@@ -2,9 +2,11 @@ import Assistant from "../../../DB/Models/assistant.model.js";
 import Submission from "../../../DB/Models/submission.model.js";
 import User from "../../../DB/Models/user.model.js";
 import { decryption } from "../../../Utils/encryption.utils.js";
-import Group from './../../../DB/Models/group.model.js';
 import CorrectionRequest from './../../../DB/Models/correctionRequest.model.js';
 import AssistantRequest from "../../../DB/Models/assistantRequest.model.js";
+import { ASSISTANT_REQUEST_STATUS, ASSISTANT_REQUEST_TYPE, TARGET_MODEL_TYPE } from "../../../Constants/constants.js";
+import Student from "../../../DB/Models/student.model.js";
+import Session from './../../../DB/Models/session.model.js';
 
 
 
@@ -87,14 +89,15 @@ export const get_assistant_submissions_service = async (req, res) => {
   try {
     const { _id: assistantId } = req.login_user;
 
-    const assistant = await Assistant.findOne({ user: assistantId}).populate("students");
+    const assistant = await Assistant.findOne({ user: assistantId }).populate("students");
     if (!assistant) {
       return res.status(404).json({ message: "❌ Assistant not found" });
     }
 
     const studentIds = assistant.students.map(s => s._id);
 
-    const submissions = await Submission.find({ student: { $in: studentIds } })
+    const submissions = await Submission.find({ student: { $in: studentIds } ,
+       /* this is for the submission that does not corrected from the assistant * isCorrected :false */  })
       // .populate("homework exam section", "pdfSolution"); // for abdu to customize it
 
     return res.status(200).json({
@@ -172,15 +175,11 @@ export const approve_Student_Request_service = async (req, res) => {
 
 
 
-
-
-// any thing below is under testing
-//===========================================
+// ==================== assistant requests
 
 export const get_assistant_Requests_service = async (req, res) => {
   try {
     const { _id: assistantId } = req.login_user;
-    const { status, type } = req.query;
 
      const assistant = await Assistant.findOne({ user: assistantId})
       if (!assistant) {
@@ -188,12 +187,10 @@ export const get_assistant_Requests_service = async (req, res) => {
     }
 
     const filter = { assistant: assistant._id };
-    if (status) filter.status = status;
-    if (type) filter.type = type;
 
     const requests = await AssistantRequest.find(filter)
-      .populate('student', 'user')
-      .populate('targetId');
+      .populate({ path :'student' , select : "fullName studentCode " })
+      // .populate('targetId') // for addo to customize it
 
     return res.status(200).json({ requests });
   } catch (error) {
@@ -201,85 +198,249 @@ export const get_assistant_Requests_service = async (req, res) => {
     return res.status(500).json({ message: "Internal server error" });
   }
 };
+
 export const request_video_extension_service = async (req, res) => {
   try {
     const { _id: assistantId } = req.login_user;
-    const { studentId, videoId, reason } = req.body;
+    const { studentId, sessionId, reason } = req.body;
 
-     const assistant = await Assistant.findOne({ user: assistantId})
-      if (!assistant) {
-      return res.status(404).json({ message: "❌ assistant not found" });
+    if (!studentId || !sessionId || !reason) {
+      return res.status(400).json({ message: "❌ All fields are required" });
     }
 
+    // ✅ Check assistant
+    const assistant = await Assistant.findOne({ user: assistantId });
+    if (!assistant) {
+      return res.status(404).json({ message: "❌ Assistant not found" });
+    }
+
+    // ✅ Check student
+    const student = await Student.findById(studentId);
+    if (!student) {
+      return res.status(404).json({ message: "❌ Student not found" });
+    }
+
+    // ✅ Check session
+    const session = await Session.findById(sessionId);
+    if (!session) {
+      return res.status(404).json({ message: "❌ Session not found" });
+    }
+
+    // ✅ Check if student's grade & division match session's
+    if (student.grade !== session.grade || student.division !== session.division) {
+      return res.status(400).json({ 
+        message: "❌ Student's grade and division do not match the session" 
+      });
+    }
+
+
+
+    // ✅ Check if student has session in sessionProgress
+    const sessionProgress = student.sessionProgress.find(
+      (progress) => progress.session.toString() === sessionId
+    );
+
+    if (!sessionProgress) {
+      return res.status(400).json({ message: "❌ Student does not have this session in progress" });
+    }
+
+    const now = new Date();
+    if (sessionProgress.expirationDate > now) {
+      return res.status(400).json({ 
+        message: "❌ Video is still active, no need for extension", 
+        expirationDate: sessionProgress.expirationDate 
+      });
+    }
+
+        // ✅ Check if there is already a pending request for this student & session
+    const existingRequest = await AssistantRequest.findOne({
+      student: studentId,
+      targetId: sessionId,
+      type: ASSISTANT_REQUEST_TYPE.VIDEO_EXTENSION,
+      status: ASSISTANT_REQUEST_STATUS.PENDING // Assuming status field exists
+    });
+
+    if (existingRequest) {
+      return res.status(400).json({ 
+        message: "❌ A pending request for this session already exists for this student" 
+      });
+    }
+
+    // ✅ Create extension request
     const request = await AssistantRequest.create({
       assistant: assistant._id,
       student: studentId,
-      type: 'video_extension',
-      targetId: videoId,
-      targetModel: 'Video',
+      type: ASSISTANT_REQUEST_TYPE.VIDEO_EXTENSION,
+      targetId: sessionId,
+      targetModel: TARGET_MODEL_TYPE.VIDEO,
       reason
     });
 
     return res.status(201).json({
-      message: "✅ Video extension request submitted",
+      message: "✅ Video extension request submitted successfully",
       request
     });
+
   } catch (error) {
     console.error("❌ Error in requestVideoExtension ==============>", error);
     return res.status(500).json({ message: "Internal server error" });
   }
 };
+
 export const request_free_session_service = async (req, res) => {
   try {
     const { _id: assistantId } = req.login_user;
     const { studentId, sessionId, reason } = req.body;
 
-     const assistant = await Assistant.findOne({ user: assistantId})
-    if (!assistant) {
-      return res.status(404).json({ message: "❌ assistant not found" });
+    if (!studentId || !sessionId || !reason) {
+      return res.status(400).json({ message: "❌ All fields are required" });
     }
 
+    // ✅ Check assistant
+    const assistant = await Assistant.findOne({ user: assistantId });
+    if (!assistant) {
+      return res.status(404).json({ message: "❌ Assistant not found" });
+    }
+
+    // ✅ Check student
+    const student = await Student.findById(studentId);
+    if (!student) {
+      return res.status(404).json({ message: "❌ Student not found" });
+    }
+
+    // ✅ Check session
+    const session = await Session.findById(sessionId);
+    if (!session) {
+      return res.status(404).json({ message: "❌ Session not found" });
+    }
+
+    // ✅ Check if student's grade & division match session's
+    if (student.grade !== session.grade || student.division !== session.division) {
+      return res.status(400).json({ 
+        message: "❌ Student's grade and division do not match the session" 
+      });
+    }
+
+    // ✅ Check if student already has the session
+    const alreadyHasSession = student.sessionProgress.some(
+      (progress) => progress.session.toString() === sessionId
+    );
+    if (alreadyHasSession) {
+      return res.status(400).json({ message: "❌ Student already has this session" });
+    }
+
+    // ✅ Check if there is already a pending request for this student & session
+    const existingRequest = await AssistantRequest.findOne({
+      student: studentId,
+      targetId: sessionId,
+      type: ASSISTANT_REQUEST_TYPE.FREE_SESSION,
+      status:  ASSISTANT_REQUEST_STATUS.PENDING // Assuming status field exists
+    });
+
+    if (existingRequest) {
+      return res.status(400).json({ 
+        message: "❌ A pending request for this session already exists for this student" 
+      });
+    }
+
+    // ✅ Create the request
     const request = await AssistantRequest.create({
       assistant: assistant._id,
       student: studentId,
-      type: 'free_session',
+      type: ASSISTANT_REQUEST_TYPE.FREE_SESSION,
       targetId: sessionId,
-      targetModel: 'Session',
+      targetModel: TARGET_MODEL_TYPE.SESSION,
       reason
     });
 
     return res.status(201).json({
-      message: "✅ Free session request submitted",
+      message: "✅ Free session request submitted successfully",
       request
     });
+
   } catch (error) {
     console.error("❌ Error in requestFreeSession  ==============>", error);
     return res.status(500).json({ message: "Internal server error" });
   }
 };
+
 export const request_submission_override_service = async (req, res) => {
   try {
     const { _id: assistantId } = req.login_user;
-    const { studentId, submissionId, reason } = req.body;
+    const { studentId, sessionId, submissionId, reason } = req.body;
 
-     const assistant = await Assistant.findOne({ user: assistantId})
-      if (!assistant) {
-      return res.status(404).json({ message: "❌ assistant not found" });
+    if (!studentId || !submissionId || !sessionId || !reason) {
+      return res.status(400).json({ message: "❌ All fields are required" });
     }
 
+    // ✅ Check assistant
+    const assistant = await Assistant.findOne({ user: assistantId });
+    if (!assistant) {
+      return res.status(404).json({ message: "❌ Assistant not found" });
+    }
+
+    // ✅ Check student
+    const student = await Student.findById(studentId);
+    if (!student) {
+      return res.status(404).json({ message: "❌ Student not found" });
+    }
+
+    // ✅ Check session
+    const session = await Session.findById(sessionId);
+    if (!session) {
+      return res.status(404).json({ message: "❌ Session not found" });
+    }
+
+    // ✅ Check if student has this session in sessionProgress
+    const sessionProgress = student.sessionProgress.find(
+      (progress) => progress.session.toString() === sessionId
+    );
+
+    if (!sessionProgress) {
+      return res.status(400).json({ message: "❌ Student does not have this session" });
+    }
+
+    // ✅ Identify submission type
+    let submissionType = null;
+    if (session.homework?.toString() === submissionId) {
+      submissionType = "Homework";
+    } else if (session.section?.toString() === submissionId) {
+      submissionType = "Section";
+    } else if (session.exam?.toString() === submissionId) {
+      submissionType = "Exam";
+    }
+
+    if (!submissionType) {
+      return res.status(400).json({ message: "❌ Submission does not belong to this student or session or there is no submission for this session " });
+    }
+
+    // ✅ Check if there is already a pending request for this submission
+    const existingRequest = await AssistantRequest.findOne({
+      student: studentId,
+      targetId: sessionId,
+      type: ASSISTANT_REQUEST_TYPE.SUBMISSION_OVERRIDE,
+      status:  ASSISTANT_REQUEST_STATUS.PENDING
+    });
+
+    if (existingRequest) {
+      return res.status(400).json({ message: "❌ A pending request for this submission already exists" });
+    }
+
+    // ✅ Create the request with submission type in reason
     const request = await AssistantRequest.create({
       assistant: assistant._id,
       student: studentId,
-      type: 'submission_override',
-      targetId: submissionId,
-      targetModel: 'Submission',
-      reason
+      type: ASSISTANT_REQUEST_TYPE.SUBMISSION_OVERRIDE,
+      targetId: sessionId,
+      targetModel: `${TARGET_MODEL_TYPE.SUBMISSION}:${submissionType}`,
+      reason: `Reason: ${reason} | Submission Type: ${submissionType}`
     });
 
     return res.status(201).json({
-      message: "✅ Submission override request submitted",
+      message: "✅ Submission override request submitted successfully",
       request
     });
+
   } catch (error) {
     console.error("❌ Error in requestSubmissionOverride ==============>", error);
     return res.status(500).json({ message: "Internal server error" });
@@ -291,7 +452,14 @@ export const request_submission_override_service = async (req, res) => {
 
 
 
-// ================================ assistant and supervisor flow
+
+
+
+
+
+
+
+// ================================ assistant and supervisor flow  =================== > for abduo
 
 export const correct_submission_service = async (req, res) => {
   try {

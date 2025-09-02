@@ -14,8 +14,7 @@ const assistantRequestSchema = new mongoose.Schema({
   // ✅ ID الديناميك حسب النوع
   targetId: {
     type: mongoose.Schema.Types.ObjectId,
-    required: true,
-    refPath: 'targetModel' // يحدد الموديل المناسب
+    required: true
   },
 
   // ✅ الموديل المناسب حسب النوع

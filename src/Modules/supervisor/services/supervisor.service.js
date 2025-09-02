@@ -6,11 +6,11 @@ import AssistantRequest from './../../../DB/Models/assistantRequest.model.js';
 import Assistant from "../../../DB/Models/assistant.model.js";
 import Student from "../../../DB/Models/student.model.js";
 import Group from "../../../DB/Models/group.model.js";
-import { STUDENT_ENUMS, system_role } from "../../../Constants/constants.js";
+import { ASSISTANT_REQUEST_STATUS, ASSISTANT_REQUEST_TYPE, STUDENT_ENUMS, system_role, TARGET_MODEL_TYPE } from "../../../Constants/constants.js";
 import Admin from "../../../DB/Models/admin.model.js";
 
 
-// supervisor data
+// ==================== supervisor data
 export const get_supervisor_data_service = async (req, res) => {
   try {
     // 1️⃣ Get the email of the logged-in user
@@ -61,12 +61,30 @@ export const get_supervisor_data_service = async (req, res) => {
     return res.status(500).json({ message: "Internal server error" });
   }
 };
+export const get_Supervisor_Assistants_service = async (req, res) => {
+  try {
+    const { _id: supervisorId } = req.login_user;
+
+    const supervisor = await Supervisor.findOne( { user :supervisorId} )
+      .populate('assistants', 'user performanceScore');  // custom it for abdu
+
+    if (!supervisor) {
+      return res.status(404).json({ message: "Supervisor not found" });
+    }
+
+    return res.status(200).json({ assistants: supervisor.assistants });
+  } catch (error) {
+    console.error("❌ Error in getSupervisorAssistants_service:", error);
+    return res.status(500).json({ message: "Internal server error" });
+  }
+};
 
 
 
 
 
-// basic work for supervisor
+
+// ======================= basic work for supervisor
 export const create_group_service = async (req, res) => {
   try {
     const { _id: userId, role: ROLE } = req.login_user;
@@ -271,34 +289,229 @@ export const remove_Student_From_Assistant_service = async (req, res) => {
 
 
 
-// any thing below is under testing
-//===========================================
-
-
-
-// supervisor data
-export const get_Supervisor_Assistants_service = async (req, res) => {
+// ======================= assistant requests  
+export const get_supervisor_requests_service = async (req, res) => {
   try {
-    const { _id: supervisorId } = req.login_user;
+    const { status, type } = req.query; // فلترة اختيارية: status = pending/accepted/rejected, type = FREE_SESSION أو VIDEO_EXTENSION
 
-    const supervisor = await Supervisor.findById(supervisorId)
-      .populate('assistants', 'user performanceScore');
-
-    if (!supervisor) {
-      return res.status(404).json({ message: "Supervisor not found" });
+    // ✅ بناء الفلتر
+    let filter = {};
+    if (status) {
+      filter.status = status;
+    }
+    if (type) {
+      filter.type = type;
     }
 
-    return res.status(200).json({ assistants: supervisor.assistants });
+    // ✅ جلب الريكوستات مع Populate لكل البيانات المهمة
+    const requests = await AssistantRequest.find(filter)
+      .populate({ path: 'student', select: 'fullName studentCode grade division' })
+      .populate({ path: 'assistant', select: 'fullName email' }) // لو عندك الحقل ده
+      .populate('targetId') // السيشن أو الفيديو
+      .sort({ createdAt: -1 }); // الأحدث أولًا
+
+    return res.status(200).json({ 
+      count: requests.length,
+      requests
+    });
+
   } catch (error) {
-    console.error("❌ Error in getSupervisorAssistants_service:", error);
+    console.error("❌ Error in getSupervisorRequests ==============>", error);
     return res.status(500).json({ message: "Internal server error" });
   }
 };
+export const handle_video_extension_request_service = async (req, res) => {
+  try {
+    const { requestId, action } = req.body; // action = accept | reject
+
+    if (!requestId || ![ ASSISTANT_REQUEST_STATUS.REJECTED,  ASSISTANT_REQUEST_STATUS.APPROVED].includes(action)) {
+      return res.status(400).json({ message: "❌ Invalid data" });
+    }
+
+    const request = await AssistantRequest.findById(requestId)
+      .populate("student")
+      .populate("targetId"); // targetId هنا هو session
+
+    if (!request) {
+      return res.status(404).json({ message: "❌ Request not found" });
+    }
+
+    if (request.type !== ASSISTANT_REQUEST_TYPE.VIDEO_EXTENSION) {
+      return res.status(400).json({ message: "❌ Not a video extension request" });
+    }
+
+    if (request.status !==  ASSISTANT_REQUEST_STATUS.PENDING ) {
+      return res.status(400).json({ message: "❌ Request already handled" });
+    }
+
+    if (action === ASSISTANT_REQUEST_STATUS.REJECTED ) {
+      request.status =  ASSISTANT_REQUEST_STATUS.REJECTED ;
+      await request.save();
+      return res.status(200).json({ message: "✅ Request rejected" });
+    }
+
+    // ✅ Accept logic
+    const student = request.student;
+    const sessionId = request.targetId._id;
+
+    const sessionProgress = student.sessionProgress.find(
+      (progress) => progress.session.toString() === sessionId.toString()
+    );
+
+    if (!sessionProgress) {
+      return res.status(400).json({ message: "❌ Student does not have this session" });
+    }
+
+    sessionProgress.expirationDate = new Date(Date.now() + 2 * 24 * 60 * 60 * 1000); // تمديد يومين من الآن
+
+    await student.save();
+
+    request.status = ASSISTANT_REQUEST_STATUS.APPROVED;
+    await request.save();
+
+    return res.status(200).json({ message: "✅ Video extended for 2 days", student });
+  } catch (error) {
+    console.error("❌ Error in handleVideoExtensionRequest:", error);
+    return res.status(500).json({ message: "Internal server error" });
+  }
+};
+export const handle_free_session_request_service = async (req, res) => {
+  try {
+    const { requestId, action } = req.body; // action = accept | reject
+
+    if (!requestId || ![ ASSISTANT_REQUEST_STATUS.REJECTED,  ASSISTANT_REQUEST_STATUS.APPROVED].includes(action)) {
+      return res.status(400).json({ message: "❌ Invalid data" });
+    }
+
+    const request = await AssistantRequest.findById(requestId)
+      .populate("student")
+      .populate("targetId"); // targetId هنا هو session
+
+    if (!request) {
+      return res.status(404).json({ message: "❌ Request not found" });
+    }
+
+    if (request.type !== ASSISTANT_REQUEST_TYPE.FREE_SESSION) {
+      return res.status(400).json({ message: "❌ Not a free session request" });
+    }
+
+    if (request.status !==  ASSISTANT_REQUEST_STATUS.PENDING ) {
+      return res.status(400).json({ message: "❌ Request already handled" });
+    }
+
+    if (action ===  ASSISTANT_REQUEST_STATUS.REJECTED ) {
+      request.status =  ASSISTANT_REQUEST_STATUS.REJECTED;
+      await request.save();
+      return res.status(200).json({ message: "✅ Request rejected" });
+    }
+
+    // ✅ Accept logic
+    const student = request.student;
+    const session = request.targetId;
+
+    student.sessionProgress.push({
+      session: session._id,
+      isPaid : true ,
+      expirationDate: new Date(Date.now() + 7 * 24 * 60 * 60 * 1000) // 7 أيام
+    });
+
+    await student.save();
+
+    request.status =  ASSISTANT_REQUEST_STATUS.APPROVED ;
+    await request.save();
+
+    return res.status(200).json({ message: "✅ Free session granted", student });
+  } catch (error) {
+    console.error("❌ Error in handleFreeSessionRequest:", error);
+    return res.status(500).json({ message: "Internal server error" });
+  }
+};
+export const handle_submission_override_request_service = async (req, res) => {
+  try {
+    const { requestId, action } = req.body; // action = APPROVED | REJECTED
+
+    if (!requestId || ![ASSISTANT_REQUEST_STATUS.APPROVED, ASSISTANT_REQUEST_STATUS.REJECTED].includes(action)) {
+      return res.status(400).json({ message: "❌ Invalid data" });
+    }
+
+    const request = await AssistantRequest.findById(requestId)
+      .populate("student")
+      .populate("targetId"); // targetId = submissionId (Homework, Section, Exam)
+
+    if (!request) {
+      return res.status(404).json({ message: "❌ Request not found" });
+    }
+
+    if (request.type !== ASSISTANT_REQUEST_TYPE.SUBMISSION_OVERRIDE) {
+      return res.status(400).json({ message: "❌ Not a submission override request" });
+    }
+
+    if (request.status !== ASSISTANT_REQUEST_STATUS.PENDING) {
+      return res.status(400).json({ message: "❌ Request already handled" });
+    }
+
+    // ✅ Reject logic
+    if (action === ASSISTANT_REQUEST_STATUS.REJECTED) {
+      request.status = ASSISTANT_REQUEST_STATUS.REJECTED;
+      await request.save();
+      return res.status(200).json({ message: "✅ Request rejected" });
+    }
+
+    // ✅ Accept logic
+    const student = request.student;
+    const targetModel = request.targetModel; // Submission:Homework OR Section OR Exam
+    const sessionId = request.targetId; // The actual submission ID
+
+    // ✅ Find the session progress for this submission
+    const sessionProgress = student.sessionProgress.find((progress) =>
+      progress.session.toString() === sessionId.toString()
+    );
+
+    if (!sessionProgress) {
+      return res.status(400).json({ message: "❌ Student does not have this session in progress" });
+    }
+
+    // ✅ Update the correct field based on targetModel
+    if (targetModel === TARGET_MODEL_TYPE.SUBMISSION_HOMEWORK) {
+      sessionProgress.isHomeworkSubmitted = true;
+    } else if (targetModel === TARGET_MODEL_TYPE.SUBMISSION_SECTION) {
+      sessionProgress.isSectionSubmitted = true;
+    } else if (targetModel === TARGET_MODEL_TYPE.SUBMISSION_EXAM) {
+      sessionProgress.isExamSubmitted = true;
+    } else {
+      return res.status(400).json({ message: "❌ Invalid target model type" });
+    }
+
+    await student.save();
+
+    request.status = ASSISTANT_REQUEST_STATUS.APPROVED;
+    await request.save();
+
+    return res.status(200).json({ message: "✅ Submission override approved", student });
+
+  } catch (error) {
+    console.error("❌ Error in handleSubmissionOverrideRequest:", error);
+    return res.status(500).json({ message: "Internal server error" });
+  }
+};
+
+
+
+
+
+
+
+
+
+
+
+
+// ============================== assistant and supervisor flow  ======================== >for abduo
 export const get_Correction_Requests_service = async (req, res) => {
   try {
     const { _id: supervisorId } = req.login_user;
 
-    const supervisor = await Supervisor.findById(supervisorId)
+    const supervisor = await Supervisor.findOne( { user :supervisorId} )
       .populate({
         path: 'correctionReviews',
         populate: [
@@ -318,35 +531,6 @@ export const get_Correction_Requests_service = async (req, res) => {
     return res.status(500).json({ message: "Internal server error" });
   }
 };
-
-
-
-export const review_Assistant_Request_service = async (req, res) => {
-  try {
-    const { requestId } = req.params;
-    const { status } = req.body; // ACCEPTED or REJECTED
-
-    const assistantRequest = await AssistantRequest.findById(requestId);
-    if (!assistantRequest) {
-      return res.status(404).json({ message: "Assistant request not found" });
-    }
-
-    assistantRequest.status = status;
-    await assistantRequest.save();
-
-    return res.status(200).json({ message: `Assistant request ${status}`, assistantRequest });
-  } catch (error) {
-    console.error("❌ Error in reviewAssistantRequest_service:", error);
-    return res.status(500).json({ message: "Internal server error" });
-  }
-};
-
-
-
-
-
-
-// ============================== assistant and supervisor flow
 export const review_Correction_Request_service = async (req, res) => {
   try {
     const { requestId } = req.params;

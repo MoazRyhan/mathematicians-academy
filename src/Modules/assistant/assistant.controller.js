@@ -24,14 +24,14 @@ assistant_controller.get("/get_pending_students", error_handler_middleware( assi
 
 // assistant request
 assistant_controller.get("/get_assistant_requests",error_handler_middleware( assistant_services.get_assistant_Requests_service));
-assistant_controller.post("/request/video-extension",error_handler_middleware( assistant_services.request_video_extension_service));
-assistant_controller.post("/request/free-session",error_handler_middleware( assistant_services.request_free_session_service))
-assistant_controller.post("/request/submission-override",error_handler_middleware( assistant_services.request_submission_override_service));
+assistant_controller.post("/request/video_extension",error_handler_middleware( assistant_services.request_video_extension_service));
+assistant_controller.post("/request/free_session",error_handler_middleware( assistant_services.request_free_session_service))
+assistant_controller.post("/request/submission_override",error_handler_middleware( assistant_services.request_submission_override_service));
 
 
 // correct the submissions
 assistant_controller.put("/correct_submission" ,error_handler_middleware( assistant_services.correct_submission_service)); // 3apis
-assistant_controller.post("correction_to_supervisor/:assistantId", error_handler_middleware ( assistant_services.send_correction_to_supervisor_service));
+assistant_controller.post("correct_to_supervisor/:assistantId", error_handler_middleware ( assistant_services.send_correction_to_supervisor_service));
 
 
 

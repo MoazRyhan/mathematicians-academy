@@ -159,7 +159,10 @@ export const ASSISTANT_REQUEST_TYPE = {
 export const TARGET_MODEL_TYPE = {
  VIDEO : 'Video',
  SESSION : 'Session',
- SUBMISSION :'Submission'
+ SUBMISSION:'Submission', // important
+ SUBMISSION_HOMEWORK:'Submission:Homework',
+ SUBMISSION_SECTION :'Submission:Section',
+ SUBMISSION_EXAM :'Submission:Exam',
 };
 
 

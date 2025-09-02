@@ -963,8 +963,6 @@ export const submit_Exam_Solution_service = async (req, res) => {
     return res.status(500).json({ message: "Internal server error" });
   }
 };
-
-
 //===================================== wait till understand it form abdo
 export const submit_monthly_exam_service = async (req, res) => {
   try {
@@ -1022,7 +1020,9 @@ export const submit_monthly_exam_service = async (req, res) => {
 
 
 
-// ============================== need to work with ( assistant and supervisor flow )
+
+
+// ============================== need to work with ( assistant and supervisor flow ) ===================== >for abduo
 export const get_Section_Status_service = async (req, res) => {
   try {
     const { sessionId } = req.params;

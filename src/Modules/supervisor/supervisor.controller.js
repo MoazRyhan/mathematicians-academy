@@ -20,8 +20,7 @@ supervisor_controller.use(authentication_middleware() , authorization_middleware
 
 // supervisor data
 supervisor_controller.get("/get_supervisor_data", error_handler_middleware( supervisor_services.get_supervisor_data_service));
-supervisor_controller.get("/get_Supervisor_Assistants", error_handler_middleware( supervisor_services.get_Supervisor_Assistants_service));
-supervisor_controller.get("/get_Correction_Requests", error_handler_middleware( supervisor_services.get_Correction_Requests_service));
+supervisor_controller.get("/get_supervisor_assistants", error_handler_middleware( supervisor_services.get_Supervisor_Assistants_service));
 
 
 // basic work for supervisor
@@ -29,9 +28,16 @@ supervisor_controller.post("/add_student_toAssistant", error_handler_middleware(
 supervisor_controller.post("/remove_student_fromAssistant",  error_handler_middleware(  supervisor_services.remove_Student_From_Assistant_service));
 
 
+// assistant request 
+supervisor_controller.get("/get_supervisor_requests", error_handler_middleware( supervisor_services.get_supervisor_requests_service));
+supervisor_controller.post("/handle_video_extension", error_handler_middleware(  supervisor_services.handle_video_extension_request_service ) );
+supervisor_controller.post("/handle_free_session",    error_handler_middleware( supervisor_services.handle_free_session_request_service));
+supervisor_controller.post("/handle_submission_override",    error_handler_middleware( supervisor_services.handle_submission_override_request_service));
+
+
 // review corrections 
+supervisor_controller.get("/get_correction_requests", error_handler_middleware( supervisor_services.get_Correction_Requests_service));
 supervisor_controller.put("/correction-requests/:requestId", error_handler_middleware( supervisor_services.review_Correction_Request_service));
-supervisor_controller.put("/assistant-requests/:requestId", error_handler_middleware( supervisor_services.review_Assistant_Request_service));
 
 
 
