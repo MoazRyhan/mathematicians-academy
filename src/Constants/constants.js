@@ -14,6 +14,11 @@ export const system_role = {
 const { USER , ADMIN  } = system_role
 
 
+// 📂 admin.enum.js
+export const ATTENDANCE_TYPE = {
+    QR : "qr", 
+    MANUAL :"manual"
+}
 
 
 // 📂 student.enum.js

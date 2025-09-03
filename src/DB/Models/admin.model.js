@@ -1,4 +1,5 @@
 import mongoose from "mongoose";
+import { ATTENDANCE_TYPE } from "../../Constants/constants.js";
 
 const adminSchema = new mongoose.Schema(
   {
@@ -15,7 +16,7 @@ const adminSchema = new mongoose.Schema(
     sessions: [{ type: mongoose.Schema.Types.ObjectId, ref: "Session" }],
     exams: [{ type: mongoose.Schema.Types.ObjectId, ref: "Exam" }],
 
-    // Points management (add/deduct points from students)
+    // Points management (add/deduct points from students) =====> ( 007 )
     managedPoints: [
       {
         student: { type: mongoose.Schema.Types.ObjectId, ref: "Student" },
@@ -25,7 +26,7 @@ const adminSchema = new mongoose.Schema(
       },
     ],
 
-    // Global statistics (cached or calculated)
+    // Global statistics (cached or calculated) =====> ( 007 )
     statistics: {
       totalStudents: { type: Number, default: 0 },
       totalAssistants: { type: Number, default: 0 },
@@ -37,7 +38,7 @@ const adminSchema = new mongoose.Schema(
       totalPayments: { type: Number, default: 0 },
     },
 
-    // Sessions opened manually by admin
+    // Sessions opened manually by admin =====> ( 007 )
     openedSessions: [
       {
         session: { type: mongoose.Schema.Types.ObjectId, ref: "Session" },
@@ -52,7 +53,7 @@ const adminSchema = new mongoose.Schema(
         student: { type: mongoose.Schema.Types.ObjectId, ref: "Student" },
         session: { type: mongoose.Schema.Types.ObjectId, ref: "Session" },
         attendedAt: { type: Date, default: Date.now },
-        method: { type: String, enum: ["qr", "manual"], default: "qr" },
+        method: { type: String, enum: Object.values(ATTENDANCE_TYPE) , default: ATTENDANCE_TYPE.QR  },
       },
     ],
   },
