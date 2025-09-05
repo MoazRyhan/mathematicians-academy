@@ -13,7 +13,7 @@ const paymentSchema = new mongoose.Schema({
   vodafoneCashNumber: { type: String },
   
   vodafoneCashImage: {
-    images :{public_id : String,
+    image :{public_id : String,
       secure_url : String },
       folderId : String 
     },
@@ -26,9 +26,7 @@ const paymentSchema = new mongoose.Schema({
 
   confirmedByAdmin: { type: mongoose.Schema.Types.ObjectId, ref: 'Admin' }, // or
 
-  relatedSession: { type: mongoose.Schema.Types.ObjectId, ref: 'Session' },
-
-  sessionsCount :{ type: Number }
+  relatedSession: { type: mongoose.Schema.Types.ObjectId, ref: 'Session' }
 
 }, { timestamps: true });
 

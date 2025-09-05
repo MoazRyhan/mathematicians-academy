@@ -1144,7 +1144,7 @@ export const delete_exam_service = async (req, res) => {
 
 export const generate_payment_codes_service = async (req, res) => {
   try {
-    const { count, sessionsCount } = req.body;
+    const { count } = req.body;
     const { _id: adminId } = req.login_user; // الأدمن اللي عامل الطلب
 
     const adminRecord = await Admin.findOne({ user: _id });
@@ -1162,8 +1162,7 @@ export const generate_payment_codes_service = async (req, res) => {
       const code = crypto.randomBytes(4).toString("hex").toUpperCase(); // كود 8 حروف
       const newCode = await PaymentCode.create({
         code,
-        generatedBy: adminId,
-        sessionsCount: sessionsCount || 1
+        generatedBy: adminId
       });
       codes.push(newCode.code);
     }
@@ -1178,6 +1177,114 @@ export const generate_payment_codes_service = async (req, res) => {
     return res.status(500).json({ message: "Internal server error" });
   }
 };
+
+
+
+
+// important / new things 
+export const assign_Assistant_To_Supervisor_service = async (req, res) => {
+  try {
+    const { supervisorId, assistantId } = req.body;
+
+    if (!supervisorId || !assistantId) {
+      return res.status(400).json({ message: "❌ supervisorId and assistantId are required" });
+    }
+
+    const supervisor = await Supervisor.findById(supervisorId);
+    if (!supervisor) {
+      return res.status(404).json({ message: "❌ Supervisor not found" });
+    }
+
+    const assistant = await Assistant.findById(assistantId);
+    if (!assistant) {
+      return res.status(404).json({ message: "❌ Assistant not found" });
+    }
+
+    // ✅ Update supervisor
+    if (!supervisor.assistants.includes(assistantId)) {
+      supervisor.assistants.push(assistantId);
+    }
+
+    // ✅ Update assistant
+    assistant.supervisor = supervisorId;
+
+    await supervisor.save();
+    await assistant.save();
+
+    return res.status(200).json({ message: "✅ Assistant assigned successfully", supervisor, assistant });
+  } catch (error) {
+    console.error("❌ Error in assignAssistantToSupervisor:", error);
+    return res.status(500).json({ message: "Internal server error" });
+  }
+};
+
+// important  / new things
+export const register_Student_Attendance_service = async (req, res) => {
+  try {
+    const { studentId, sessionId, method } = req.body; // method = qr | manual
+    const { _id: adminUserId } = req.login_user;
+
+    if (!studentId || !sessionId) {
+      return res.status(400).json({ message: "❌ studentId and sessionId are required" });
+    }
+
+    // ✅ جلب بيانات الطالب
+    const student = await Student.findById(studentId);
+    if (!student) {
+      return res.status(404).json({ message: "❌ Student not found" });
+    }
+
+    // ✅ جلب بيانات الحصة
+    const session = await Session.findById(sessionId);
+    if (!session) {
+      return res.status(404).json({ message: "❌ Session not found" });
+    }
+
+    // ✅ التحقق من أن الطالب والحصة لهم نفس الجريد والدفشن
+    if (student.grade !== session.grade || student.division !== session.division) {
+      return res.status(400).json({ message: "❌ Student grade/division does not match the session" });
+    }
+
+    // ✅ جلب الأدمن
+    const admin = await Admin.findOne({ user: adminUserId });
+    if (!admin) {
+      return res.status(404).json({ message: "❌ Admin not found" });
+    }
+
+    // ✅ تسجيل الحضور في جدول الأدمن
+    admin.manualAttendance.push({
+      student: studentId,
+      session: sessionId,
+      method: method || ATTENDANCE_TYPE.MANUAL,
+    });
+
+    // ✅ التأكد إذا كان الطالب عنده sessionProgress للحصة
+    let sessionProgress = student.sessionProgress.find(sp => sp.session.toString() === sessionId);
+
+    if (!sessionProgress) {
+      // ✅ إضافة الحصة للطالب مع صلاحية 7 أيام
+      student.sessionProgress.push({
+        session: sessionId,
+        isPaid: true, // نعتبره مدفوع عشان يشتغل
+        expirationDate: new Date(Date.now() + 7 * 24 * 60 * 60 * 1000), // +7 أيام
+        attendanceRegistered: true
+      });
+    } else {
+      // ✅ لو موجودة، فقط حدّث الحضور
+      sessionProgress.attendanceRegistered = true;
+    }
+
+    await admin.save();
+    await student.save();
+
+    return res.status(200).json({ message: "✅ Attendance registered successfully and session added for 7 days" });
+  } catch (error) {
+    console.error("❌ Error in registerStudentAttendance:", error);
+    return res.status(500).json({ message: "Internal server error" });
+  }
+};
+
+
 
 
 

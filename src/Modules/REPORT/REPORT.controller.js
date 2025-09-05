@@ -20,8 +20,6 @@ REPORT_controller.get("/calendar", authorization_middleware([STUDENT]), error_ha
 
 REPORT_controller.get("/points", authorization_middleware([STUDENT]), error_handler_middleware(REPORT_services.get_student_points_service));
 
-REPORT_controller.post("/redeem_points", authorization_middleware([STUDENT]), error_handler_middleware(REPORT_services.redeem_points_for_session_service));
-
 
 
 
@@ -42,8 +40,6 @@ REPORT_controller.get("/students-stats",    authorization_middleware([TEACHER ])
 
 
 // =============================== admin
-REPORT_controller.post("/assign-assistant",  authorization_middleware([ADMIN])  ,error_handler_middleware(REPORT_services.assign_Assistant_To_Supervisor_service));
-REPORT_controller.post("/register-attendance",   authorization_middleware([ADMIN]) , error_handler_middleware(REPORT_services.register_Student_Attendance_service));
 REPORT_controller.get("/system-stats",   authorization_middleware([ADMIN]) , error_handler_middleware(REPORT_services.get_System_Statistics_service));
 REPORT_controller.get("/roles-performance",   authorization_middleware([ADMIN]), error_handler_middleware(REPORT_services.get_Roles_Performance_Report_service));
 

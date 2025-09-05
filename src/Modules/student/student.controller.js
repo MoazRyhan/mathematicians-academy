@@ -31,6 +31,10 @@ student_controller.get("/get_monthly_exams",  error_handler_middleware( student_
 student_controller.post("/submit_monthly_exam/:examId", error_handler_middleware (student_services.submit_monthly_exam_service ) );
 
 
+// new things
+student_controller.post("/redeem_points",  error_handler_middleware(student_services.redeem_points_for_session_service));
+
+
 
 
 // ======================================== testing

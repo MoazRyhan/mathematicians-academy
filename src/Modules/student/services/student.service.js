@@ -299,8 +299,7 @@ export const make_payment_service = async (req, res) => {
       paymentMethod,
       paymentCode,
       vodafoneCashNumber,
-      relatedSession,
-      sessionsCount
+      relatedSession
     } = req.body;
 
     const files = req.files || [];
@@ -322,10 +321,6 @@ export const make_payment_service = async (req, res) => {
     if (!session) {
       return res.status(404).json({ message: "❌ session not found" });
     }
-    }
-
-    if (!sessionsCount || !sessionsCount == 1) {
-      return res.status(400).json({ message: "❌ numberOfSessions must be at least 1" });
     }
 
     let vodafoneCashImageData = null;
@@ -379,7 +374,6 @@ if (paymentMethod === PAYMENT_TYPE.VODAFONE_CASH) {
     vodafoneCashNumber,
     vodafoneCashImage: vodafoneCashImageData,
     relatedSession,
-    sessionsCount,
     isConfirmed: false
   });
 
@@ -406,20 +400,12 @@ if (paymentMethod === PAYMENT_TYPE.CODE) {
     return res.status(400).json({ message: "❌ Payment code already fully used" });
   }
 
-  if (codeData.sessionsCount < 1) {
-    return res.status(400).json({ message: "❌ No remaining sessions in this code" });
-  }
 
-  // ✅ قلل الجلسات بمقدار واحد
-  codeData.sessionsCount -= 1;
+  codeData.isUsed = true;
   codeData.usedBy = student._id
 
   student.sessionCredits += 1
 
-  // ✅ لو بقيت صفر، يبقى نعلمه مستخدم بالكامل
-  if (codeData.sessionsCount === 0) {
-    codeData.isUsed = true;
-  }
 
   await codeData.save();
   await student.save();
@@ -430,7 +416,6 @@ if (paymentMethod === PAYMENT_TYPE.CODE) {
     paymentMethod,
     paymentCode : codeData._id,
     relatedSession,
-    sessionsCount: 1, // ✅ لأننا خصمنا جلسة واحدة فقط
     isConfirmed: true
   });
 
@@ -866,6 +851,46 @@ export const get_monthly_exams_service = async (req, res) => {
   }
 };
 
+
+// important  // new things
+export const redeem_points_for_session_service = async (req, res) => {
+  try {
+    const { _id: userId } = req.login_user;
+
+    const student = await Student.findOne({ user: userId });
+    if (!student) {
+      return res.status(404).json({ message: "❌ Student not found" });
+    }
+
+    const POINTS_PER_SESSION = 1000;
+
+    if (student.redeemablePoints < POINTS_PER_SESSION) {
+      return res.status(400).json({
+        message: `❌ You need at least ${POINTS_PER_SESSION} points to redeem a free session`
+      });
+    }
+
+    // ✅ احسب عدد الحصص الممكن استبدالها
+    const sessionsToAdd = Math.floor(student.redeemablePoints / POINTS_PER_SESSION);
+
+    // ✅ خصم النقاط
+    student.redeemablePoints -= sessionsToAdd * POINTS_PER_SESSION;
+
+    // ✅ إضافة الحصص المجانية
+    student.sessionCredits += sessionsToAdd;
+
+    await student.save();
+
+    return res.status(200).json({
+      message: `✅ Successfully redeemed ${sessionsToAdd} free session(s)`,
+      remainingPoints: student.redeemablePoints,
+      totalSessionCredits: student.sessionCredits
+    });
+  } catch (error) {
+    console.error("❌ Error in redeem_points_for_session_service:", error);
+    return res.status(500).json({ message: "Internal server error" });
+  }
+};
 
 
 
