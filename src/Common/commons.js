@@ -46,9 +46,9 @@ export const generateSequentialStudentCode = async (grade, division) => {
     }
 
     // Ensure 4 digits (zero padded)
-    const paddedNumber = String(nextNumber).padStart(4, "0");
+    const paddedNumber = String(nextNumber).padStart(5, "0");
 
-    return prefix + paddedNumber; // e.g. 10001, 10002, ...
+    return prefix + paddedNumber; // e.g. 100001, 100002, ...
   } catch (error) {
     // ⛔ stop API flow, forward error to controller
     throw new Error(`Failed to generate student code: ${error.message}`);

@@ -14,6 +14,12 @@ const examSchema = new mongoose.Schema({
     correctAnswer: { type: String },   
     }],
 
+    essay :[ { 
+    questionText: { type: String, required: true },
+    options: [{ type: String }],       
+    correctAnswer: { type: String },   
+    }],
+
 
     questionBank: [{
       questionText: { type: String },
@@ -35,8 +41,8 @@ const examSchema = new mongoose.Schema({
   division: { type: String, required: true },  // now
   
   relatedSession: { type: mongoose.Schema.Types.ObjectId, ref: 'Session' },
-  createdBy: { type: mongoose.Schema.Types.ObjectId, ref: 'Teacher', required: true },
-  isAdminAddIt: { type: Boolean, default: false },
+  createdByTeacher: { type: mongoose.Schema.Types.ObjectId, ref: 'Teacher'},
+  createdByAdmin: { type: mongoose.Schema.Types.ObjectId, ref: 'Admin'},
 
   // 🔹 Reference to student submissions
   submissions: [{ type: mongoose.Schema.Types.ObjectId, ref: "Submission" }],  // now

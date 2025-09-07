@@ -7,8 +7,6 @@ import { cloudinary } from "./../../../config/cloudinary.config.js";
 import { system_role } from "../../../Constants/constants.js";
 import Student from "../../../DB/Models/student.model.js";
 import blackList from "./../../../DB/Models/blackList.model.js";
-import Parent from "../../../DB/Models/parent.model.js";
-import { send_Email_event } from "../../../config/send_email_verify.config.js";
 import { decryption, encryption } from "../../../Utils/encryption.utils.js";
 import { generateSequentialStudentCode } from "../../../Common/commons.js";
 import Admin from "../../../DB/Models/admin.model.js";
@@ -343,7 +341,7 @@ export const parent_login_service = async (req, res) => {
 
     // 5. اعمل التوكن
     const access_token = jwt.sign(
-      { role: "PARENT", studentId: student._id },
+      { role: system_role.PARENT, studentId: student._id },
       process.env.JWT_ACCESS_TOKEN_SECRET_KEY,
       {
         expiresIn: process.env.EXPIRATION_DATA_ACCESS_TOKEN,
@@ -352,7 +350,7 @@ export const parent_login_service = async (req, res) => {
     );
 
     const refresh_token = jwt.sign(
-      { role: "PARENT", studentId: student._id },
+      { role: system_role.PARENT, studentId: student._id },
       process.env.JWT_REFRESH_TOKEN_SECRET_KEY,
       {
         expiresIn: process.env.EXPIRATION_DATA_REFRESH_TOKEN,
@@ -362,7 +360,7 @@ export const parent_login_service = async (req, res) => {
 
     return res.status(200).json({
       message: "parent login success",
-      role: "PARENT",
+      role: system_role.PARENT ,
       studentId: student._id,
       access_token,
       refresh_token,

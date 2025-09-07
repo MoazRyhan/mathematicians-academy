@@ -6,7 +6,7 @@ const sectionSchema = new mongoose.Schema({
   description: { type: String },
 
   // 🔹 Homework resources (e.g., PDF, Docs, etc.)
-  materials: {
+  materials: { // ====================== > no use for this
     files :{public_id : String,
       secure_url : String },
       folderId : String 
