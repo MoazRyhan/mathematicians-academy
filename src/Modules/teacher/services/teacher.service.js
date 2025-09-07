@@ -663,7 +663,7 @@ export const add_Homework_ToSession_service = async (req, res) => {
 
     // ✅ Validate each question
     for (const q of questions) {
-      if (!q.questionText || !q.type || !q.points || !q.grade || !q.correctAnswer) {
+      if (!q.questionText || !q.type || !q.points || !q.grade ) {
         return res.status(400).json({
           message: " Each question must include questionText, type, points, grade, and correctAnswer"
         });
@@ -677,6 +677,11 @@ export const add_Homework_ToSession_service = async (req, res) => {
         if (q.options && q.options.length > 0) {
           return res.status(400).json({
             message: " Essay questions should not have options"
+          });
+        }
+        if (q.correctAnswer) {
+          return res.status(400).json({
+            message: " Essay questions should not have any correctAnswer"
           });
         }
       }
@@ -833,7 +838,7 @@ export const update_Homework_service = async (req, res) => {
 
       // ✅ Merge & Add new questions
       for (const q of questions) {
-        if (!q.questionText || !q.type || !q.points || !q.grade || !q.correctAnswer) {
+        if (!q.questionText || !q.type || !q.points || !q.grade) {
           return res.status(400).json({
             message: " Each question must include questionText, type, points, grade, and correctAnswer"
           });
@@ -865,6 +870,11 @@ export const update_Homework_service = async (req, res) => {
           if (q.options && q.options.length > 0) {
             return res.status(400).json({ message: " Essay questions should not have options" });
           }
+          if (q.correctAnswer) {
+          return res.status(400).json({
+            message: " Essay questions should not have any correctAnswer"
+          });
+        }
         }
 
         if (q.type === HOMEWORK_QUESTION_TYPE.MULTIPLE_CHOICE) {
@@ -1011,7 +1021,7 @@ export const add_Section_ToSession_service = async (req, res) => {
 
     // ✅ Validate questions
     for (const q of questions) {
-      if (!q.questionText || !q.type || !q.points || !q.grade || !q.correctAnswer) {
+      if (!q.questionText || !q.type || !q.points || !q.grade) {
         return res.status(400).json({
           message: "❌ Each question must include questionText, type, points, grade, and correctAnswer"
         });
@@ -1025,6 +1035,11 @@ export const add_Section_ToSession_service = async (req, res) => {
         if (q.options && q.options.length > 0) {
           return res.status(400).json({
             message: "❌ Essay questions should not have options"
+          });
+        }
+        if (q.correctAnswer) {
+          return res.status(400).json({
+            message: " Essay questions should not have any correctAnswer"
           });
         }
       }
