@@ -171,6 +171,17 @@ export const TARGET_MODEL_TYPE = {
 };
 
 
+// homework
+
+export const HOMEWORK_QUESTION_TYPE = {
+ MULTIPLE_CHOICE: "multiple_choice",
+ ESSAY :"essay"
+};
+
+export const SECTION_QUESTION_TYPE = {
+ MULTIPLE_CHOICE: "multiple_choice",
+ ESSAY :"essay"
+};
 
 
 // for cloudnary

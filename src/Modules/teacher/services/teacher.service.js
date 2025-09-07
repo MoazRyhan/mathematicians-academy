@@ -5,7 +5,7 @@ import Session from "../../../DB/Models/session.model.js";
 import Teacher from "./../../../DB/Models/teacher.model.js";
 import Homework from "../../../DB/Models/homework.model.js";
 import Section from "../../../DB/Models/section.model.js";
-import { SESSION_TIME, STUDENT_ENUMS ,EXAM_TYPE, EXAM_QUESTION_TYPE, EXAM_TIME_TYPE, system_role  } from "../../../Constants/constants.js";
+import { SESSION_TIME, STUDENT_ENUMS ,EXAM_TYPE, EXAM_QUESTION_TYPE, EXAM_TIME_TYPE, system_role, HOMEWORK_QUESTION_TYPE, SECTION_QUESTION_TYPE  } from "../../../Constants/constants.js";
 import Exam from "../../../DB/Models/exam.model.js";
 import mongoose from "mongoose";
 import Admin from "../../../DB/Models/admin.model.js";
@@ -22,7 +22,7 @@ export const get_teacher_data_service = async (req, res) => {
     // 2️⃣ Find the user by email
     const user = await User.findOne({ email }, "-password");
     if (!user) {
-      return res.status(404).json({ message: "❌ User not found" });
+      return res.status(404).json({ message: " User not found" });
     }
 
     // 3️⃣ Find the teacher linked with this user
@@ -33,7 +33,7 @@ export const get_teacher_data_service = async (req, res) => {
       .populate({ path: "assistants", select: "-password -admin " })
 
     if (!teacher) {
-      return res.status(404).json({ message: "❌ Teacher not found" });
+      return res.status(404).json({ message: " Teacher not found" });
     }
 
     // 4️⃣ Decrypt sensitive fields from User
@@ -61,7 +61,7 @@ export const get_teacher_data_service = async (req, res) => {
       teacher: teacherData,
     });
   } catch (error) {
-    console.log("❌ Error from get_teacher_data =====>", error);
+    console.log(" Error from get_teacher_data =====>", error);
     return res.status(500).json({ message: "Internal server error" });
   }
 };
@@ -93,47 +93,47 @@ export const add_Session_teacher_service_teacher = async (req, res) => {
     // ✅ Check if user is a Teacher
     const teacher = await Teacher.findOne({ user: _id });
     if (!teacher) {
-      return res.status(403).json({ message: "❌ Only teachers can add sessions" });
+      return res.status(403).json({ message: " Only teachers can add sessions" });
     }
 
     // ✅ Validate grade
     if (grade && !Object.values(STUDENT_ENUMS.GRADE).includes(grade)) {
-      return res.status(400).json({ message: "❌ Invalid grade" });
+      return res.status(400).json({ message: " Invalid grade" });
     }
 
     // ✅ Validate division
     if (division && !Object.values(STUDENT_ENUMS.DIVISION).includes(division)) {
-      return res.status(400).json({ message: "❌ Invalid division" });
+      return res.status(400).json({ message: " Invalid division" });
     }
 
     // ✅ Validate availability
     if (!Object.values(SESSION_TIME).includes(availabilityType)) {
-      return res.status(400).json({ message: "❌ Invalid availabilityType" });
+      return res.status(400).json({ message: " Invalid availabilityType" });
     }
 
     if (availabilityType === SESSION_TIME.SCHEDULED && !availableAt) {
-      return res.status(400).json({ message: "❌ availableAt is required when availabilityType is SCHEDULED" });
+      return res.status(400).json({ message: " availableAt is required when availabilityType is SCHEDULED" });
     }
 
     if (availabilityType === SESSION_TIME.IMMEDIATE && availableAt) {
-      return res.status(400).json({ message: "❌ availableAt is not required when availabilityType is 'immediate'" });
+      return res.status(400).json({ message: " availableAt is not required when availabilityType is 'immediate'" });
     }
 
     // ✅ Validate prerequisites
     if (prerequisites) {
       if (!Array.isArray(prerequisites)) {
-        return res.status(400).json({ message: "❌ prerequisites must be an array of session IDs" });
+        return res.status(400).json({ message: " prerequisites must be an array of session IDs" });
       }
 
       const allValid = prerequisites.every(id => mongoose.Types.ObjectId.isValid(id));
       if (!allValid) {
-        return res.status(400).json({ message: "❌ prerequisites contains invalid ObjectId(s)" });
+        return res.status(400).json({ message: " prerequisites contains invalid ObjectId(s)" });
       }
 
       // 🔎 Ensure sessions exist
       const foundSessions = await Session.find({ _id: { $in: prerequisites } }).select("_id");
       if (foundSessions.length !== prerequisites.length) {
-        return res.status(400).json({ message: "❌ One or more prerequisite sessions not found" });
+        return res.status(400).json({ message: " One or more prerequisite sessions not found" });
       }
     }
 
@@ -141,7 +141,7 @@ export const add_Session_teacher_service_teacher = async (req, res) => {
     if (homework) {
       const homeworkExists = await Homework.findById(homework);
       if (!homeworkExists) {
-        return res.status(400).json({ message: "❌ Homework not found" });
+        return res.status(400).json({ message: " Homework not found" });
       }
     }
 
@@ -149,7 +149,7 @@ export const add_Session_teacher_service_teacher = async (req, res) => {
     if (section) {
       const sectionExists = await Section.findById(section);
       if (!sectionExists) {
-        return res.status(400).json({ message: "❌ Section not found" });
+        return res.status(400).json({ message: " Section not found" });
       }
     }
 
@@ -157,7 +157,7 @@ export const add_Session_teacher_service_teacher = async (req, res) => {
     if (exam) {
       const examExists = await Exam.findById(exam);
       if (!examExists) {
-        return res.status(400).json({ message: "❌ Exam not found" });
+        return res.status(400).json({ message: " Exam not found" });
       }
     }
 
@@ -165,10 +165,10 @@ export const add_Session_teacher_service_teacher = async (req, res) => {
     if (videoQuizzes && Array.isArray(videoQuizzes)) {
       for (let quiz of videoQuizzes) {
         if (!quiz.questionText || !quiz.correctAnswer || !quiz.showAtTime) {
-          return res.status(400).json({ message: "❌ Each quiz must have questionText, correctAnswer, and showAtTime" });
+          return res.status(400).json({ message: " Each quiz must have questionText, correctAnswer, and showAtTime" });
         }
         if (!Array.isArray(quiz.options) || quiz.options.length < 2) {
-          return res.status(400).json({ message: "❌ Each quiz must have at least 2 options" });
+          return res.status(400).json({ message: " Each quiz must have at least 2 options" });
         }
       }
     }
@@ -205,7 +205,7 @@ export const add_Session_teacher_service_teacher = async (req, res) => {
     });
 
   } catch (error) {
-    console.log("❌ Error in addSession_service =====>", error);
+    console.log(" Error in addSession_service =====>", error);
     return res.status(500).json({ message: "Internal server error" });
   }
 };
@@ -238,57 +238,57 @@ export const update_session_teacher_service_teacher  = async (req, res) => {
     // ✅ Check teacher
     const teacherRecord = await Teacher.findOne({ user: _id });
     if (!teacherRecord) {
-      return res.status(403).json({ message: "❌ Only teachers can update sessions" });
+      return res.status(403).json({ message: " Only teachers can update sessions" });
     }
 
     // ✅ Get current session
     const currentSession = await Session.findById(sessionId);
     if (!currentSession) {
-      return res.status(404).json({ message: "❌ Session not found" });
+      return res.status(404).json({ message: " Session not found" });
     }
 
     // ✅ Ensure session belongs to this teacher
     if (currentSession.createdBy.toString() !== teacherRecord._id.toString()) {
-      return res.status(403).json({ message: "❌ You can only update your own sessions" });
+      return res.status(403).json({ message: " You can only update your own sessions" });
     }
 
     // 🔹 Validate grade
     if (updates?.grade && !Object.values(STUDENT_ENUMS.GRADE).includes(updates.grade)) {
-      return res.status(400).json({ message: "❌ Invalid grade" });
+      return res.status(400).json({ message: " Invalid grade" });
     }
 
     // 🔹 Validate division
     if (updates?.division && !Object.values(STUDENT_ENUMS.DIVISION).includes(updates.division)) {
-      return res.status(400).json({ message: "❌ Invalid division" });
+      return res.status(400).json({ message: " Invalid division" });
     }
 
     // 🔹 Validate availability
     if (updates?.availabilityType && !Object.values(SESSION_TIME).includes(updates.availabilityType)) {
-      return res.status(400).json({ message: "❌ Invalid availabilityType" });
+      return res.status(400).json({ message: " Invalid availabilityType" });
     }
 
     if (updates?.availabilityType === SESSION_TIME.SCHEDULED && !updates?.availableAt) {
-      return res.status(400).json({ message: "❌ availableAt is required when availabilityType is SCHEDULED" });
+      return res.status(400).json({ message: " availableAt is required when availabilityType is SCHEDULED" });
     }
 
     if (updates?.availabilityType === SESSION_TIME.IMMEDIATE && updates?.availableAt) {
-      return res.status(400).json({ message: "❌ availableAt is not required when availabilityType is 'immediate'" });
+      return res.status(400).json({ message: " availableAt is not required when availabilityType is 'immediate'" });
     }
 
     // ✅ Validate prerequisites
     if (updates.prerequisites) {
       if (!Array.isArray(updates.prerequisites)) {
-        return res.status(400).json({ message: "❌ prerequisites must be an array of session IDs" });
+        return res.status(400).json({ message: " prerequisites must be an array of session IDs" });
       }
 
       const allValid = updates.prerequisites.every(id => mongoose.Types.ObjectId.isValid(id));
       if (!allValid) {
-        return res.status(400).json({ message: "❌ prerequisites contains invalid ObjectId(s)" });
+        return res.status(400).json({ message: " prerequisites contains invalid ObjectId(s)" });
       }
 
       const foundSessions = await Session.find({ _id: { $in: updates.prerequisites } }).select("_id");
       if (foundSessions.length !== updates.prerequisites.length) {
-        return res.status(400).json({ message: "❌ One or more prerequisite sessions not found" });
+        return res.status(400).json({ message: " One or more prerequisite sessions not found" });
       }
     }
 
@@ -296,7 +296,7 @@ export const update_session_teacher_service_teacher  = async (req, res) => {
     if (updates.homework) {
       const homeworkExists = await Homework.findById(updates.homework);
       if (!homeworkExists) {
-        return res.status(400).json({ message: "❌ Homework not found" });
+        return res.status(400).json({ message: " Homework not found" });
       }
     }
 
@@ -304,7 +304,7 @@ export const update_session_teacher_service_teacher  = async (req, res) => {
     if (updates.section) {
       const sectionExists = await Section.findById(updates.section);
       if (!sectionExists) {
-        return res.status(400).json({ message: "❌ Section not found" });
+        return res.status(400).json({ message: " Section not found" });
       }
     }
 
@@ -312,7 +312,7 @@ export const update_session_teacher_service_teacher  = async (req, res) => {
     if (updates.exam) {
       const examExists = await Exam.findById(updates.exam);
       if (!examExists) {
-        return res.status(400).json({ message: "❌ Exam not found" });
+        return res.status(400).json({ message: " Exam not found" });
       }
     }
 
@@ -368,7 +368,7 @@ export const update_session_teacher_service_teacher  = async (req, res) => {
     });
 
   } catch (error) {
-    console.log("❌ error in update_session_teacher_service ===========> ", error);
+    console.log(" error in update_session_teacher_service ===========> ", error);
     return res.status(500).json({ message: "internal server error" });
   }
 };
@@ -381,17 +381,17 @@ export const delete_session_teacher_service_teacher  = async (req, res) => {
     // ✅ Check teacher
     const teacherRecord = await Teacher.findOne({ user: _id });
     if (!teacherRecord) {
-      return res.status(403).json({ message: "❌ Only teachers can delete sessions" });
+      return res.status(403).json({ message: " Only teachers can delete sessions" });
     }
 
     const currentSession = await Session.findById(sessionId);
     if (!currentSession) {
-      return res.status(404).json({ message: "❌ Session not found" });
+      return res.status(404).json({ message: " Session not found" });
     }
 
     // ✅ Ensure session belongs to this teacher
     if (currentSession.createdBy.toString() !== teacherRecord._id.toString()) {
-      return res.status(403).json({ message: "❌ You can only delete your own sessions" });
+      return res.status(403).json({ message: " You can only delete your own sessions" });
     }
 
     const deletedSession = await Session.findByIdAndDelete(sessionId);
@@ -401,7 +401,7 @@ export const delete_session_teacher_service_teacher  = async (req, res) => {
       session: deletedSession,
     });
   } catch (error) {
-    console.log("❌ error in delete_session_teacher_service ===========> ", error);
+    console.log(" error in delete_session_teacher_service ===========> ", error);
     return res.status(500).json({ message: "internal server error" });
   }
 };
@@ -436,11 +436,11 @@ export const add_exam_service_teacher = async (req, res) => {
 
         // ✅ لو Monthly → لازم month
     if (examType === EXAM_TYPE.MONTHLY && !month) {
-      return res.status(400).json({ message: "❌ Month is required for monthly exams" });
+      return res.status(400).json({ message: " Month is required for monthly exams" });
     }
 
     if (examType === EXAM_TYPE.MONTHLY && relatedSession) {
-      return res.status(400).json({ message: "❌ related session not with monthly exams" });
+      return res.status(400).json({ message: " related session not with monthly exams" });
     }
      
     // ✅ التحقق من الحقول الأساسية
@@ -451,31 +451,31 @@ export const add_exam_service_teacher = async (req, res) => {
     // ✅ check teacher
     const teacherRecord = await Teacher.findOne({ user: _id });
     if (!teacherRecord) {
-      return res.status(403).json({ message: "❌ Only teachers can add exams" });
+      return res.status(403).json({ message: " Only teachers can add exams" });
     }
 
     // ✅ Validate Questions
     for (const question of questions) {
       if (!question.questionText || !question.questionType || !question.points) {
-        return res.status(400).json({ message: "❌ Each question must have questionText, questionType and points" });
+        return res.status(400).json({ message: " Each question must have questionText, questionType and points" });
       }
 
       if (question.questionType === EXAM_QUESTION_TYPE.MULTIPLE_CHOICE) {
         if (!question.options || question.options.length < 2) {
-          return res.status(400).json({ message: "❌ MULTIPLE_CHOICE must have at least 2 options" });
+          return res.status(400).json({ message: " MULTIPLE_CHOICE must have at least 2 options" });
         }
         if (!question.correctAnswer) {
-          return res.status(400).json({ message: "❌ MULTIPLE_CHOICE must have correctAnswer" });
+          return res.status(400).json({ message: " MULTIPLE_CHOICE must have correctAnswer" });
         }
       }
 
       if (question.questionType === EXAM_QUESTION_TYPE.ESSAY) {
         if (!question.questionBank || question.questionBank.length === 0) {
-          return res.status(400).json({ message: "❌ QUESTION_BANK must have at least one question in questionBank" });
+          return res.status(400).json({ message: " QUESTION_BANK must have at least one question in questionBank" });
         }
         for (const subQ of question.questionBank) {
           if (!subQ.questionText || !subQ.options || subQ.options.length < 2 || !subQ.correctAnswer) {
-            return res.status(400).json({ message: "❌ Each question in questionBank must have questionText, options (min 2), and correctAnswer" });
+            return res.status(400).json({ message: " Each question in questionBank must have questionText, options (min 2), and correctAnswer" });
           }
         }
       }
@@ -513,7 +513,7 @@ export const add_exam_service_teacher = async (req, res) => {
       exam: newExam,
     });
   } catch (error) {
-    console.error("❌ error in add_exam_service_teacher:", error);
+    console.error(" error in add_exam_service_teacher:", error);
     return res.status(500).json({ message: "Internal server error" });
   }
 };
@@ -527,48 +527,48 @@ export const update_exam_service_teacher = async (req, res) => {
     // ✅ Check teacher
     const teacherRecord = await Teacher.findOne({ user: _id });
     if (!teacherRecord) {
-      return res.status(403).json({ message: "❌ Only teachers can update exams" });
+      return res.status(403).json({ message: " Only teachers can update exams" });
     }
 
     // ✅ Find Exam
     const exam = await Exam.findById(examId);
     if (!exam) {
-      return res.status(404).json({ message: "❌ Exam not found" });
+      return res.status(404).json({ message: " Exam not found" });
     }
 
     // ✅ Ensure teacher owns this exam
     if (exam.createdBy.toString() !== teacherRecord._id.toString()) {
-      return res.status(403).json({ message: "❌ You can only update your own exams" });
+      return res.status(403).json({ message: " You can only update your own exams" });
     }
 
     // ✅ If examType is changing to monthly, require month
     if (updates.examType === EXAM_TYPE.MONTHLY && !updates.month) {
-      return res.status(400).json({ message: "❌ Month is required for monthly exams" });
+      return res.status(400).json({ message: " Month is required for monthly exams" });
     }
 
     // ✅ Validate questions if provided
     if (updates.questions && Array.isArray(updates.questions)) {
       for (const question of updates.questions) {
         if (!question.questionText || !question.questionType || !question.points) {
-          return res.status(400).json({ message: "❌ Each question must have questionText, questionType, and points" });
+          return res.status(400).json({ message: " Each question must have questionText, questionType, and points" });
         }
 
         if (question.questionType === "MULTIPLE_CHOICE") {
           if (!question.options || question.options.length < 2) {
-            return res.status(400).json({ message: "❌ MULTIPLE_CHOICE must have at least 2 options" });
+            return res.status(400).json({ message: " MULTIPLE_CHOICE must have at least 2 options" });
           }
           if (!question.correctAnswer) {
-            return res.status(400).json({ message: "❌ MULTIPLE_CHOICE must have correctAnswer" });
+            return res.status(400).json({ message: " MULTIPLE_CHOICE must have correctAnswer" });
           }
         }
 
         if (question.questionType === "QUESTION_BANK") {
           if (!question.questionBank || question.questionBank.length === 0) {
-            return res.status(400).json({ message: "❌ QUESTION_BANK must have at least one question in questionBank" });
+            return res.status(400).json({ message: " QUESTION_BANK must have at least one question in questionBank" });
           }
           for (const subQ of question.questionBank) {
             if (!subQ.questionText || !subQ.options || subQ.options.length < 2 || !subQ.correctAnswer) {
-              return res.status(400).json({ message: "❌ Each question in questionBank must have questionText, options (min 2), and correctAnswer" });
+              return res.status(400).json({ message: " Each question in questionBank must have questionText, options (min 2), and correctAnswer" });
             }
           }
         }
@@ -584,7 +584,7 @@ export const update_exam_service_teacher = async (req, res) => {
       exam,
     });
   } catch (error) {
-    console.error("❌ error in update_exam_service_teacher:", error);
+    console.error(" error in update_exam_service_teacher:", error);
     return res.status(500).json({ message: "Internal server error" });
   }
 };
@@ -597,24 +597,24 @@ export const delete_exam_service_teacher = async (req, res) => {
     // ✅ check teacher
     const teacherRecord = await Teacher.findOne({ user: _id });
     if (!teacherRecord) {
-      return res.status(403).json({ message: "❌ Only teachers can delete exams" });
+      return res.status(403).json({ message: " Only teachers can delete exams" });
     }
 
     const exam = await Exam.findById(examId);
     if (!exam) {
-      return res.status(404).json({ message: "❌ Exam not found" });
+      return res.status(404).json({ message: " Exam not found" });
     }
 
     // ✅ Ensure teacher owns this exam
     if (exam.createdBy.toString() !== teacherRecord._id.toString()) {
-      return res.status(403).json({ message: "❌ You can only delete your own exams" });
+      return res.status(403).json({ message: " You can only delete your own exams" });
     }
 
     await exam.deleteOne();
 
     return res.status(200).json({ message: "✅ Exam deleted successfully" });
   } catch (error) {
-    console.error("❌ error in delete_exam_service_teacher:", error);
+    console.error(" error in delete_exam_service_teacher:", error);
     return res.status(500).json({ message: "Internal server error" });
   }
 };
@@ -631,43 +631,121 @@ export const add_Homework_ToSession_service = async (req, res) => {
   try {
     const { sessionId } = req.params;
     const { _id: loginUserId, role: ROLE } = req.login_user;
-    const { title, description, availableFrom, deadline, teacherIdForAssign } = req.body;
+    const {
+      title,
+      description,
+      availableFrom,
+      deadline,
+      questions,
+      expectedMCQCount,
+      expectedEssayCount,
+      totalGrade,
+      expectedPoints
+    } = req.body;
 
     if (!title) {
-      return res.status(400).json({ message: "❌ you must fill the title" });
+      return res.status(400).json({ message: " You must fill the title" });
+    }
+
+    if (!Array.isArray(questions) || questions.length === 0) {
+      return res.status(400).json({ message: " You must provide at least one question" });
+    }
+
+    if (!expectedMCQCount || !expectedEssayCount || !totalGrade || !expectedPoints ) {
+      return res.status(400).json({ message: " You must provide expectedMCQCount, expectedEssayCount, and totalGrade , expectedPoints" });
+    }
+
+    // ✅ Counters
+    let totalPoints = 0;
+    let totalGradeFromQuestions = 0;
+    let countEssayQuestions = 0;
+    let countMCQQuestions = 0;
+
+    // ✅ Validate each question
+    for (const q of questions) {
+      if (!q.questionText || !q.type || !q.points || !q.grade || !q.correctAnswer) {
+        return res.status(400).json({
+          message: " Each question must include questionText, type, points, grade, and correctAnswer"
+        });
+      }
+
+      totalPoints += q.points;
+      totalGradeFromQuestions += q.grade;
+
+      if (q.type === HOMEWORK_QUESTION_TYPE.ESSAY) {
+        countEssayQuestions++;
+        if (q.options && q.options.length > 0) {
+          return res.status(400).json({
+            message: " Essay questions should not have options"
+          });
+        }
+      }
+
+      if (q.type === HOMEWORK_QUESTION_TYPE.MULTIPLE_CHOICE) {
+        countMCQQuestions++;
+        if (!Array.isArray(q.options) || q.options.length < 2) {
+          return res.status(400).json({
+            message: " Multiple choice questions must have at least 2 options"
+          });
+        }
+        if (!q.options.includes(q.correctAnswer)) {
+          return res.status(400).json({
+            message: " correctAnswer must be one of the options"
+          });
+        }
+      }
+    }
+
+    // ✅ Validate counts
+    if (countMCQQuestions !== expectedMCQCount) {
+      return res.status(400).json({
+        message: ` Expected ${expectedMCQCount} MCQ questions, but got ${countMCQQuestions}`
+      });
+    }
+
+    if (countEssayQuestions !== expectedEssayCount) {
+      return res.status(400).json({
+        message: ` Expected ${expectedEssayCount} Essay questions, but got ${countEssayQuestions}`
+      });
+    }
+
+    // ✅ Validate total grade
+    if (totalGrade !== totalGradeFromQuestions) {
+      return res.status(400).json({
+        message: ` totalGrade (${totalGrade}) does not match sum of question grades (${totalGradeFromQuestions})`
+      });
+    }
+
+       // ✅ Validate total points
+    if (expectedPoints !== totalPoints) {
+      return res.status(400).json({
+        message: ` expectedPoints (${expectedPoints}) does not match sum of question points (${totalPoints})`
+      });
     }
 
     // ✅ Get session
     const sessionExist = await Session.findById(sessionId);
     if (!sessionExist) {
-      return res.status(404).json({ message: "❌ Session not found" });
+      return res.status(404).json({ message: " Session not found" });
     }
 
-    let assignedByTeacherId;
-    let isAdminAddIt = false; // Default
+    let  assignedByAdmin;
+    let  assignedByTeacher;
 
     if (ROLE === system_role.TEACHER) {
-      // ✅ If role = teacher
       const teacher = await Teacher.findOne({ user: loginUserId });
       if (!teacher) {
-        return res.status(404).json({ message: "❌ Teacher not found" });
+        return res.status(404).json({ message: " Teacher not found" });
       }
-      assignedByTeacherId = teacher._id;
-
+      assignedByTeacher = teacher._id;
     } else if (ROLE === system_role.ADMIN) {
-      // ✅ If role = admin → must send teacherIdForAssign
-      if (!teacherIdForAssign) {
-        return res.status(400).json({ message: "❌ teacherIdForAssign is required for admins" });
+      const admin = await Admin.findOne({ user: loginUserId });
+      if (!admin) {
+        return res.status(404).json({ message: " Admin not found for provided teacherIdForAssign" });
       }
-
-      const teacher = await Teacher.findById(teacherIdForAssign);
-      if (!teacher) {
-        return res.status(404).json({ message: "❌ Teacher not found for provided teacherIdForAssign" });
-      }
-      assignedByTeacherId = teacher._id;
-      isAdminAddIt = true; // ✅ Admin added it
+       assignedByAdmin = admin._id;
     } else {
-      return res.status(403).json({ message: "❌ You are not allowed to perform this action" });
+      return res.status(403).json({ message: " You are not allowed to perform this action" });
     }
 
     // ✅ Create new homework
@@ -676,22 +754,27 @@ export const add_Homework_ToSession_service = async (req, res) => {
       description,
       session: sessionId,
       availableFrom: availableFrom || sessionExist.availableAt || sessionExist.createdAt,
-      deadline: deadline || new Date(sessionExist.createdAt).setDate(new Date(sessionExist.createdAt).getDate() + 7), // 7 days
+      deadline: deadline || new Date(sessionExist.createdAt).setDate(new Date(sessionExist.createdAt).getDate() + 7),
       grade: sessionExist.grade,
       division: sessionExist.division,
-      assignedBy: assignedByTeacherId,
-      isAdminAddIt, // ✅ Added this
+      assignedByTeacher:  assignedByTeacher || null ,
+      assignedByAdmin:  assignedByAdmin || null ,
+      questions,
+      totalQuestions: questions.length,
+      totalPoints,
+      totalGrade,
+      countEssayQuestions,
+      countMCQQuestions
     });
 
     await newHomework.save();
 
-    // ✅ Update session with homework ID
     await Session.findByIdAndUpdate(sessionId, { homework: newHomework._id });
 
     return res.status(201).json({ message: "✅ Homework linked to session", homework: newHomework });
 
   } catch (error) {
-    console.error("❌ Error in addHomeworkToSession:=============>", error);
+    console.error(" Error in add_Homework_ToSession_service:", error);
     return res.status(500).json({ message: "Internal server error" });
   }
 };
@@ -700,51 +783,148 @@ export const update_Homework_service = async (req, res) => {
   try {
     const { homeworkId } = req.params;
     const { _id: loginUserId, role: ROLE } = req.login_user;
-    const { title, description, availableFrom, deadline } = req.body;
+    const {
+      title,
+      description,
+      availableFrom,
+      deadline,
+      questions,
+      expectedMCQCount,
+      expectedEssayCount,
+      totalGrade,
+      expectedPoints
+    } = req.body;
 
     // ✅ Get homework
     const homework = await Homework.findById(homeworkId);
     if (!homework) {
-      return res.status(404).json({ message: "❌ Homework not found" });
+      return res.status(404).json({ message: " Homework not found" });
     }
 
-    // ✅ Check roles
+    // ✅ Role validation
     if (ROLE === system_role.ADMIN) {
       const adminExist = await Admin.findOne({ user: loginUserId });
       if (!adminExist) {
-        return res.status(403).json({ message: "❌ You are not a valid admin" });
+        return res.status(403).json({ message: " You are not a valid admin" });
       }
     } else if (ROLE === system_role.TEACHER) {
       const teacher = await Teacher.findOne({ user: loginUserId });
       if (!teacher) {
-        return res.status(403).json({ message: "❌ You are not a valid teacher" });
+        return res.status(403).json({ message: " You are not a valid teacher" });
       }
     } else {
-      return res.status(403).json({ message: "❌ You are not allowed to perform this action" });
+      return res.status(403).json({ message: " You are not allowed to perform this action" });
     }
 
-    // ✅ Compare old values with new ones
-    const updates = {};
+    // ✅ Prepare updates
+    let updates = {};
     if (title && title !== homework.title) updates.title = title;
     if (description && description !== homework.description) updates.description = description;
     if (availableFrom && new Date(availableFrom).toISOString() !== homework.availableFrom.toISOString()) updates.availableFrom = availableFrom;
     if (deadline && new Date(deadline).toISOString() !== homework.deadline.toISOString()) updates.deadline = deadline;
 
-    // ✅ If no changes
-    if (Object.keys(updates).length === 0) {
-      return res.status(400).json({ message: "❌ No changes detected" });
+    // ✅ Handle Questions Update
+    if (questions) {
+      if (!Array.isArray(questions) || questions.length === 0) {
+        return res.status(400).json({ message: " You must provide at least one question" });
+      }
+
+      const updatedQuestions = [...homework.questions]; // copy old questions
+
+      // ✅ Merge & Add new questions
+      for (const q of questions) {
+        if (!q.questionText || !q.type || !q.points || !q.grade || !q.correctAnswer) {
+          return res.status(400).json({
+            message: " Each question must include questionText, type, points, grade, and correctAnswer"
+          });
+        }
+
+        if (q._id) {
+          const index = updatedQuestions.findIndex(existingQ => existingQ._id.toString() === q._id);
+          if (index === -1) {
+            return res.status(404).json({ message: ` Question with ID ${q._id} not found` });
+          }
+          updatedQuestions[index] = { ...updatedQuestions[index]._doc, ...q };
+        } else {
+          updatedQuestions.push(q);
+        }
+      }
+
+      // ✅ Validate counts & totals
+      let totalPoints = 0;
+      let totalGradeFromQuestions = 0;
+      let countEssayQuestions = 0;
+      let countMCQQuestions = 0;
+
+      for (const q of updatedQuestions) {
+        totalPoints += q.points;
+        totalGradeFromQuestions += q.grade;
+
+        if (q.type === HOMEWORK_QUESTION_TYPE.ESSAY) {
+          countEssayQuestions++;
+          if (q.options && q.options.length > 0) {
+            return res.status(400).json({ message: " Essay questions should not have options" });
+          }
+        }
+
+        if (q.type === HOMEWORK_QUESTION_TYPE.MULTIPLE_CHOICE) {
+          countMCQQuestions++;
+          if (!Array.isArray(q.options) || q.options.length < 2) {
+            return res.status(400).json({ message: " Multiple choice questions must have at least 2 options" });
+          }
+          if (!q.options.includes(q.correctAnswer)) {
+            return res.status(400).json({ message: " correctAnswer must be one of the options" });
+          }
+        }
+      }
+
+      if (expectedMCQCount && countMCQQuestions !== expectedMCQCount) {
+        return res.status(400).json({
+          message: ` Expected ${expectedMCQCount} MCQ questions, but got ${countMCQQuestions}`
+        });
+      }
+
+      if (expectedEssayCount && countEssayQuestions !== expectedEssayCount) {
+        return res.status(400).json({
+          message: ` Expected ${expectedEssayCount} Essay questions, but got ${countEssayQuestions}`
+        });
+      }
+
+      if (totalGrade && totalGrade !== totalGradeFromQuestions) {
+        return res.status(400).json({
+          message: ` totalGrade (${totalGrade}) does not match sum of question grades (${totalGradeFromQuestions})`
+        });
+      }
+
+      if (expectedPoints && expectedPoints !== totalPoints) {
+        return res.status(400).json({
+          message: ` expectedPoints (${expectedPoints}) does not match sum of question points (${totalPoints})`
+        });
+      }
+
+      updates.questions = updatedQuestions;
+      updates.totalQuestions = updatedQuestions.length;
+      updates.totalPoints = totalPoints;
+      updates.totalGrade = totalGradeFromQuestions;
+      updates.countEssayQuestions = countEssayQuestions;
+      updates.countMCQQuestions = countMCQQuestions;
     }
 
-    // ✅ Update homework
+    if (Object.keys(updates).length === 0) {
+      return res.status(400).json({ message: " No changes detected" });
+    }
+
+    // ✅ Save updates
     const updatedHomework = await Homework.findByIdAndUpdate(homeworkId, updates, { new: true });
 
     return res.status(200).json({ message: "✅ Homework updated successfully", homework: updatedHomework });
 
   } catch (error) {
-    console.error("❌ Error in updateHomework:", error);
+    console.error(" Error in update_Homework_service:", error);
     return res.status(500).json({ message: "Internal server error" });
   }
 };
+
 
 export const delete_Homework_service = async (req, res) => {
   try {
@@ -754,22 +934,22 @@ export const delete_Homework_service = async (req, res) => {
     // ✅ Get homework
     const homework = await Homework.findById(homeworkId);
     if (!homework) {
-      return res.status(404).json({ message: "❌ Homework not found" });
+      return res.status(404).json({ message: " Homework not found" });
     }
 
     // ✅ Check roles
     if (ROLE === system_role.ADMIN) {
       const adminExist = await Admin.findOne({ user: loginUserId });
       if (!adminExist) {
-        return res.status(403).json({ message: "❌ You are not a valid admin" });
+        return res.status(403).json({ message: " You are not a valid admin" });
       }
     } else if (ROLE === system_role.TEACHER) {
       const teacher = await Teacher.findOne({ user: loginUserId });
       if (!teacher) {
-        return res.status(403).json({ message: "❌ You are not a valid teacher" });
+        return res.status(403).json({ message: " You are not a valid teacher" });
       }
     } else {
-      return res.status(403).json({ message: "❌ You are not allowed to perform this action" });
+      return res.status(403).json({ message: " You are not allowed to perform this action" });
     }
 
     // ✅ Delete homework
@@ -781,7 +961,7 @@ export const delete_Homework_service = async (req, res) => {
     return res.status(200).json({ message: "✅ Homework deleted successfully" });
 
   } catch (error) {
-    console.error("❌ Error in deleteHomework:", error);
+    console.error(" Error in deleteHomework:", error);
     return res.status(500).json({ message: "Internal server error" });
   }
 };
@@ -797,10 +977,98 @@ export const add_Section_ToSession_service = async (req, res) => {
   try {
     const { sessionId } = req.params;
     const { _id: loginUserId, role: ROLE } = req.login_user;
-    const { title, description, availableFrom, deadline, teacherIdForAssign } = req.body;
+    const {
+      title,
+      description,
+      availableFrom,
+      deadline,
+      questions,
+      expectedMCQCount,
+      expectedEssayCount,
+      totalGrade,
+      expectedPoints
+    } = req.body;
 
     if (!title) {
-      return res.status(400).json({ message: "❌ you must fill the title" });
+      return res.status(400).json({ message: "❌ You must fill the title" });
+    }
+
+    if (!Array.isArray(questions) || questions.length === 0) {
+      return res.status(400).json({ message: "❌ You must provide at least one question" });
+    }
+
+    if (!expectedMCQCount || !expectedEssayCount || !totalGrade || !expectedPoints) {
+      return res.status(400).json({
+        message: "❌ You must provide expectedMCQCount, expectedEssayCount, totalGrade, and expectedPoints"
+      });
+    }
+
+    // ✅ Counters
+    let totalPoints = 0;
+    let totalGradeFromQuestions = 0;
+    let countEssayQuestions = 0;
+    let countMCQQuestions = 0;
+
+    // ✅ Validate questions
+    for (const q of questions) {
+      if (!q.questionText || !q.type || !q.points || !q.grade || !q.correctAnswer) {
+        return res.status(400).json({
+          message: "❌ Each question must include questionText, type, points, grade, and correctAnswer"
+        });
+      }
+
+      totalPoints += q.points;
+      totalGradeFromQuestions += q.grade;
+
+      if (q.type === SECTION_QUESTION_TYPE.ESSAY) {
+        countEssayQuestions++;
+        if (q.options && q.options.length > 0) {
+          return res.status(400).json({
+            message: "❌ Essay questions should not have options"
+          });
+        }
+      }
+
+      if (q.type === SECTION_QUESTION_TYPE.MULTIPLE_CHOICE) {
+        countMCQQuestions++;
+        if (!Array.isArray(q.options) || q.options.length < 2) {
+          return res.status(400).json({
+            message: "❌ Multiple choice questions must have at least 2 options"
+          });
+        }
+        if (!q.options.includes(q.correctAnswer)) {
+          return res.status(400).json({
+            message: "❌ correctAnswer must be one of the options"
+          });
+        }
+      }
+    }
+
+    // ✅ Validate counts
+    if (countMCQQuestions !== expectedMCQCount) {
+      return res.status(400).json({
+        message: `❌ Expected ${expectedMCQCount} MCQ questions, but got ${countMCQQuestions}`
+      });
+    }
+
+    if (countEssayQuestions !== expectedEssayCount) {
+      return res.status(400).json({
+        message: `❌ Expected ${expectedEssayCount} Essay questions, but got ${countEssayQuestions}`
+      });
+    }
+
+    // ✅ Validate total grade
+    if (totalGrade !== totalGradeFromQuestions) {
+      return res.status(400).json({
+        message: `❌ totalGrade (${totalGrade}) does not match sum of question grades (${totalGradeFromQuestions})`
+      });
+    }
+
+    // ✅ Validate total points
+    if (expectedPoints !== totalPoints) {
+      return res.status(400).json({
+        message: `❌ expectedPoints (${expectedPoints}) does not match sum of question points (${totalPoints})`
+      });
     }
 
     // ✅ Get session
@@ -809,30 +1077,21 @@ export const add_Section_ToSession_service = async (req, res) => {
       return res.status(404).json({ message: "❌ Session not found" });
     }
 
-    let assignedByTeacherId;
-    let isAdminAddIt = false;
+    let assignedByAdmin;
+    let assignedByTeacher;
 
     if (ROLE === system_role.TEACHER) {
-      // ✅ Teacher case
       const teacher = await Teacher.findOne({ user: loginUserId });
       if (!teacher) {
         return res.status(404).json({ message: "❌ Teacher not found" });
       }
-      assignedByTeacherId = teacher._id;
-
+      assignedByTeacher = teacher._id;
     } else if (ROLE === system_role.ADMIN) {
-      // ✅ Admin case → teacherIdForAssign is required
-      if (!teacherIdForAssign) {
-        return res.status(400).json({ message: "❌ teacherIdForAssign is required for admins" });
+      const admin = await Admin.findOne({ user: loginUserId });
+      if (!admin) {
+        return res.status(404).json({ message: "❌ Admin not found" });
       }
-
-      const teacher = await Teacher.findById(teacherIdForAssign);
-      if (!teacher) {
-        return res.status(404).json({ message: "❌ Teacher not found for provided teacherIdForAssign" });
-      }
-      assignedByTeacherId = teacher._id;
-      isAdminAddIt = true;
-
+      assignedByAdmin = admin._id;
     } else {
       return res.status(403).json({ message: "❌ You are not allowed to perform this action" });
     }
@@ -846,22 +1105,28 @@ export const add_Section_ToSession_service = async (req, res) => {
       deadline: deadline || new Date(sessionExist.createdAt).setDate(new Date(sessionExist.createdAt).getDate() + 7),
       grade: sessionExist.grade,
       division: sessionExist.division,
-      assignedBy: assignedByTeacherId,
-      isAdminAddIt, // ✅ Added this
+      assignedByTeacher: assignedByTeacher || null,
+      assignedByAdmin: assignedByAdmin || null,
+      questions,
+      totalQuestions: questions.length,
+      totalPoints,
+      totalGrade,
+      countEssayQuestions,
+      countMCQQuestions
     });
 
     await newSection.save();
 
-    // ✅ Update session with section ID
     await Session.findByIdAndUpdate(sessionId, { section: newSection._id });
 
     return res.status(201).json({ message: "✅ Section added successfully", section: newSection });
 
   } catch (error) {
-    console.error("❌ Error in addSectionToSession:", error);
+    console.error("❌ Error in add_Section_ToSession_service:", error);
     return res.status(500).json({ message: "Internal server error" });
   }
 };
+
 
 export const update_Section_service = async (req, res) => {
   try {
@@ -872,22 +1137,22 @@ export const update_Section_service = async (req, res) => {
     // ✅ Get section
     const section = await Section.findById(sectionId);
     if (!section) {
-      return res.status(404).json({ message: "❌ Section not found" });
+      return res.status(404).json({ message: " Section not found" });
     }
 
     // ✅ Check roles
     if (ROLE === system_role.ADMIN) {
       const adminExist = await Admin.findOne({ user: loginUserId });
       if (!adminExist) {
-        return res.status(403).json({ message: "❌ You are not a valid admin" });
+        return res.status(403).json({ message: " You are not a valid admin" });
       }
     } else if (ROLE === system_role.TEACHER) {
       const teacher = await Teacher.findOne({ user: loginUserId });
       if (!teacher) {
-        return res.status(403).json({ message: "❌ You are not a valid teacher" });
+        return res.status(403).json({ message: " You are not a valid teacher" });
       }
     } else {
-      return res.status(403).json({ message: "❌ You are not allowed to perform this action" });
+      return res.status(403).json({ message: " You are not allowed to perform this action" });
     }
 
     // ✅ Compare old values with new ones
@@ -899,7 +1164,7 @@ export const update_Section_service = async (req, res) => {
 
     // ✅ If no changes
     if (Object.keys(updates).length === 0) {
-      return res.status(400).json({ message: "❌ No changes detected" });
+      return res.status(400).json({ message: " No changes detected" });
     }
 
     // ✅ Update section
@@ -908,7 +1173,7 @@ export const update_Section_service = async (req, res) => {
     return res.status(200).json({ message: "✅ Section updated successfully", section: updatedSection });
 
   } catch (error) {
-    console.error("❌ Error in updateSection:", error);
+    console.error(" Error in updateSection:", error);
     return res.status(500).json({ message: "Internal server error" });
   }
 };
@@ -921,22 +1186,22 @@ export const delete_Section_service = async (req, res) => {
     // ✅ Get section
     const section = await Section.findById(sectionId);
     if (!section) {
-      return res.status(404).json({ message: "❌ Section not found" });
+      return res.status(404).json({ message: " Section not found" });
     }
 
     // ✅ Check roles
     if (ROLE === system_role.ADMIN) {
       const adminExist = await Admin.findOne({ user: loginUserId });
       if (!adminExist) {
-        return res.status(403).json({ message: "❌ You are not a valid admin" });
+        return res.status(403).json({ message: " You are not a valid admin" });
       }
     } else if (ROLE === system_role.TEACHER) {
       const teacher = await Teacher.findOne({ user: loginUserId });
       if (!teacher) {
-        return res.status(403).json({ message: "❌ You are not a valid teacher" });
+        return res.status(403).json({ message: " You are not a valid teacher" });
       }
     } else {
-      return res.status(403).json({ message: "❌ You are not allowed to perform this action" });
+      return res.status(403).json({ message: " You are not allowed to perform this action" });
     }
 
     // ✅ Delete section
@@ -948,7 +1213,7 @@ export const delete_Section_service = async (req, res) => {
     return res.status(200).json({ message: "✅ Section deleted successfully" });
 
   } catch (error) {
-    console.error("❌ Error in deleteSection:", error);
+    console.error(" Error in deleteSection:", error);
     return res.status(500).json({ message: "Internal server error" });
   }
 };
@@ -969,17 +1234,17 @@ export const add_video_Quiz_ToSession_service = async (req, res) => {
 
     const sessionExist = await Session.findById(sessionId);
     if (!sessionExist) {
-      return res.status(404).json({ message: "❌ Session not found" });
+      return res.status(404).json({ message: " Session not found" });
     }
 
         // ✅ Validate videoQuizzes
     if (videoQuizzes && Array.isArray(videoQuizzes)) {
       for (let quiz of videoQuizzes) {
         if (!quiz.questionText || !quiz.correctAnswer || !quiz.showAtTime) {
-          return res.status(400).json({ message: "❌ Each quiz must have questionText, correctAnswer, and showAtTime" });
+          return res.status(400).json({ message: " Each quiz must have questionText, correctAnswer, and showAtTime" });
         }
         if (!Array.isArray(quiz.options) || quiz.options.length < 2) {
-          return res.status(400).json({ message: "❌ Each quiz must have at least 2 options" });
+          return res.status(400).json({ message: " Each quiz must have at least 2 options" });
         }
       }
     }
@@ -990,14 +1255,14 @@ export const add_video_Quiz_ToSession_service = async (req, res) => {
     if (ROLE === system_role.TEACHER) {
       const teacher = await Teacher.findOne({ user: loginUserId });
       if (!teacher) {
-        return res.status(404).json({ message: "❌ Teacher not found" });
+        return res.status(404).json({ message: " Teacher not found" });
       }
 
     } else if (ROLE === system_role.ADMIN) {
       isAdminAddIt = true;
 
     } else {
-      return res.status(403).json({ message: "❌ You are not allowed to perform this action" });
+      return res.status(403).json({ message: " You are not allowed to perform this action" });
     }
 
     // ✅ Add extra fields to each quiz
@@ -1022,7 +1287,7 @@ export const add_video_Quiz_ToSession_service = async (req, res) => {
       session: updatedSession
     });
   } catch (error) {
-    console.error("❌ Error in add_video_Quiz_ToSession_service:", error);
+    console.error(" Error in add_video_Quiz_ToSession_service:", error);
     return res.status(500).json({ message: "Internal server error" });
   }
 };
@@ -1036,28 +1301,28 @@ export const update_video_Quiz_inSession_service = async (req, res) => {
     // ✅ تحقق من وجود السيشن
     const sessionExist = await Session.findById(sessionId);
     if (!sessionExist) {
-      return res.status(404).json({ message: "❌ Session not found" });
+      return res.status(404).json({ message: " Session not found" });
     }
 
     // ✅ تحقق من الصلاحيات
     if (ROLE === system_role.ADMIN) {
       const adminExist = await Admin.findOne({ user: loginUserId });
       if (!adminExist) {
-        return res.status(403).json({ message: "❌ You are not a valid admin" });
+        return res.status(403).json({ message: " You are not a valid admin" });
       }
     } else if (ROLE === system_role.TEACHER) {
       const teacher = await Teacher.findOne({ user: loginUserId });
       if (!teacher) {
-        return res.status(403).json({ message: "❌ You are not a valid teacher" });
+        return res.status(403).json({ message: " You are not a valid teacher" });
       }
     } else {
-      return res.status(403).json({ message: "❌ You are not allowed to perform this action" });
+      return res.status(403).json({ message: " You are not allowed to perform this action" });
     }
 
     // ✅ ابحث عن الكويز
     const quizIndex = sessionExist.videoQuizzes.findIndex(q => q._id.toString() === quizId);
     if (quizIndex === -1) {
-      return res.status(404).json({ message: "❌ Quiz not found" });
+      return res.status(404).json({ message: " Quiz not found" });
     }
 
     const currentQuiz = sessionExist.videoQuizzes[quizIndex];
@@ -1074,7 +1339,7 @@ export const update_video_Quiz_inSession_service = async (req, res) => {
     }
     if (correctAnswer && correctAnswer !== currentQuiz.correctAnswer) {
       if (options && !options.includes(correctAnswer)) {
-        return res.status(400).json({ message: "❌ correctAnswer must be one of the options" });
+        return res.status(400).json({ message: " correctAnswer must be one of the options" });
       }
       currentQuiz.correctAnswer = correctAnswer;
       isChanged = true;
@@ -1100,7 +1365,7 @@ export const update_video_Quiz_inSession_service = async (req, res) => {
     });
 
   } catch (error) {
-    console.error("❌ Error in update_video_Quiz_inSession_service:", error);
+    console.error(" Error in update_video_Quiz_inSession_service:", error);
     return res.status(500).json({ message: "Internal server error" });
   }
 };
@@ -1114,28 +1379,28 @@ export const delete_video_Quiz_fromSession_service = async (req, res) => {
     // ✅ تحقق من وجود السيشن
     const sessionExist = await Session.findById(sessionId);
     if (!sessionExist) {
-      return res.status(404).json({ message: "❌ Session not found" });
+      return res.status(404).json({ message: " Session not found" });
     }
 
     // ✅ Check roles
     if (ROLE === system_role.ADMIN) {
       const adminExist = await Admin.findOne({ user: loginUserId });
       if (!adminExist) {
-        return res.status(403).json({ message: "❌ You are not a valid admin" });
+        return res.status(403).json({ message: " You are not a valid admin" });
       }
     } else if (ROLE === system_role.TEACHER) {
       const teacher = await Teacher.findOne({ user: loginUserId });
       if (!teacher) {
-        return res.status(403).json({ message: "❌ You are not a valid teacher" });
+        return res.status(403).json({ message: " You are not a valid teacher" });
       }
     } else {
-      return res.status(403).json({ message: "❌ You are not allowed to perform this action" });
+      return res.status(403).json({ message: " You are not allowed to perform this action" });
     }
 
     // ✅ تحقق من وجود الكويز واحذفه
     const quizIndex = sessionExist.videoQuizzes.findIndex(q => q._id.toString() === quizId);
     if (quizIndex === -1) {
-      return res.status(404).json({ message: "❌ Quiz not found" });
+      return res.status(404).json({ message: " Quiz not found" });
     }
 
     sessionExist.videoQuizzes.splice(quizIndex, 1);
@@ -1144,7 +1409,7 @@ export const delete_video_Quiz_fromSession_service = async (req, res) => {
     return res.status(200).json({ message: "✅ Video quiz deleted successfully" });
 
   } catch (error) {
-    console.error("❌ Error in delete_video_Quiz_fromSession_service:", error);
+    console.error(" Error in delete_video_Quiz_fromSession_service:", error);
     return res.status(500).json({ message: "Internal server error" });
   }
 };

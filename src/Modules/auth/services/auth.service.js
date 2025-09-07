@@ -250,60 +250,52 @@ export const sign_up_service = async (req, res) => {
   }
 };
 
-
 export const login_service = async (req, res) => {
-  try {
+   try {
     const { email, password } = req.body;
 
-    // find the email
+    // 1. جيب اليوزر
     const user = await User.findOne({ email });
     if (!user) {
       return res.status(404).json({ message: "this email is not exists" });
     }
 
-    // find the student
-    const ComingUser = await User.findById(user._id);
-    if (!ComingUser) {
-      return res.status(404).json({ message: "this email is not exists" });
-    }
+    // 2. لو الطالب لسه متقبلش او اترفض
+    if (user.role === system_role.STUDENT) {
+      const student = await Student.findOne({ user: user._id });
+      if (!student) {
+        return res.status(404).json({ message: "student not found" });
+      }
 
-    if (ComingUser.role == system_role.STUDENT) {
-      const student = await Student.findOne({ user: ComingUser._id });
-      if (  student.status == STUDENT_ENUMS.STATUS.PENDING ) {
+      if (student.status === STUDENT_ENUMS.STATUS.PENDING) {
         return res.status(409).json({
-          message:
-            "this application is pending wait till the admin give the approvement",
+          message: "this application is pending, wait till the admin approve",
         });
-      } else if (student.status == STUDENT_ENUMS.STATUS.REJECTED) {
-        return res.status(404).json({
-          message:
-            "❌ your application is rejected call the MS or try again later",
+      } else if (student.status === STUDENT_ENUMS.STATUS.REJECTED) {
+        return res.status(403).json({
+          message: "❌ your application is rejected, call the MS or try again later",
         });
       }
     }
 
-    // 1 check the status
-
-    // check the password
+    // 3. تحقق من الباسورد
     const pass_right = compareSync(password, user.password);
-
-    if (pass_right == false) {
-      return res
-        .status(409)
-        .json({ message: "the email or the pass is wrong" });
+    if (!pass_right) {
+      return res.status(409).json({ message: "the email or the password is wrong" });
     }
 
-    // make the token
+    // 4. اعمل التوكن
     const access_token = jwt.sign(
-      { id: user.id, email: user.email },
+      { id: user.id, email: user.email, role: user.role },
       process.env.JWT_ACCESS_TOKEN_SECRET_KEY,
       {
         expiresIn: process.env.EXPIRATION_DATA_ACCESS_TOKEN,
         jwtid: uuidv4(),
       }
     );
+
     const refresh_token = jwt.sign(
-      { id: user.id, email: user.email },
+      { id: user.id, email: user.email, role: user.role },
       process.env.JWT_REFRESH_TOKEN_SECRET_KEY,
       {
         expiresIn: process.env.EXPIRATION_DATA_REFRESH_TOKEN,
@@ -311,20 +303,72 @@ export const login_service = async (req, res) => {
       }
     );
 
-    // send the data
-    if (user) {
-      return res.status(201).json({
-        message: " login is success",
-        access_token: access_token,
-        refresh_token: refresh_token,
-      });
-    } else {
-      return res
-        .status(409)
-        .json({ message: "failed to login try again later " });
-    }
+    return res.status(200).json({
+      message: "login success",
+      role: user.role,
+      access_token,
+      refresh_token,
+    });
   } catch (error) {
-    console.log("error in login ===========> ", error);
+    console.log("error in user login ===========> ", error);
+    return res.status(500).json({ message: "internal server error " });
+  }
+};
+
+export const parent_login_service = async (req, res) => {
+  try {
+    const { email, studentCode } = req.body;
+
+    // 1. جيب اليوزر
+    const user = await User.findOne({ email });
+    if (!user) {
+      return res.status(404).json({ message: "student with this email not found" });
+    }
+
+    // 2. جيب بيانات الطالب
+    const student = await Student.findOne({ user: user._id });
+    if (!student) {
+      return res.status(404).json({ message: "student not found" });
+    }
+
+    // 3. لازم Approved
+    if (student.status !== STUDENT_ENUMS.STATUS.APPROVED) {
+      return res.status(403).json({ message: "student not approved yet" });
+    }
+
+    // 4. تحقق من الكود
+    if (student.studentCode !== studentCode) {
+      return res.status(401).json({ message: "invalid student code" });
+    }
+
+    // 5. اعمل التوكن
+    const access_token = jwt.sign(
+      { role: "PARENT", studentId: student._id },
+      process.env.JWT_ACCESS_TOKEN_SECRET_KEY,
+      {
+        expiresIn: process.env.EXPIRATION_DATA_ACCESS_TOKEN,
+        jwtid: uuidv4(),
+      }
+    );
+
+    const refresh_token = jwt.sign(
+      { role: "PARENT", studentId: student._id },
+      process.env.JWT_REFRESH_TOKEN_SECRET_KEY,
+      {
+        expiresIn: process.env.EXPIRATION_DATA_REFRESH_TOKEN,
+        jwtid: uuidv4(),
+      }
+    );
+
+    return res.status(200).json({
+      message: "parent login success",
+      role: "PARENT",
+      studentId: student._id,
+      access_token,
+      refresh_token,
+    });
+  } catch (error) {
+    console.log("error in parent login ===========> ", error);
     return res.status(500).json({ message: "internal server error " });
   }
 };
@@ -386,148 +430,16 @@ export const refresh_token_service = async (req, res) => {
 // any thing below is under testing
 //===========================================
 
-export const forget_password_service = async (req, res) => {
-  try {
-    const { email } = req.body;
 
-    // ✅ Find user by email
-    const user = await User.findOne({ email });
-    if (!user) {
-      return res.status(404).json({ message: "Email is not found" });
-    }
 
-    // ✅ Generate OTP (4 digits)
-    const OTP = Math.floor(1000 + Math.random() * 9000);
-    const hash_otp = hashSync(OTP.toString(), +process.env.OTP_SALT);
 
-    // ✅ Update OTP in user document
-    user.OTP = hash_otp;
-    await user.save();
 
-    // ✅ Send OTP email
-    const send_otp = send_Email_event.emit("Send_Email", {
-      to: user.email,
-      subject: "Your OTP for password reset",
-      html: `
-        <h3>From your account ${user.email} - mathematicians-academy</h3>
-        <p>The OTP is <strong>${OTP}</strong></p>
-        <p>If this wasn't you, please ignore this message.</p>
-      `,
-    });
 
-    // ✅ Check if email was sent
-    if (!send_otp) {
-      return res.status(409).json({ message: "Failed to send OTP" });
-    }
 
-    return res.status(200).json({ message: "The OTP has been sent" });
-  } catch (error) {
-    console.error("Error in forget password service:", error);
-    return res.status(500).json({ message: "Internal server error" });
-  }
-};
 
-// Service to verify OTP and change password
-export const verify_forget_password_service = async (req, res) => {
-  try {
-    const { OTP, email, new_password, confirm_password } = req.body;
 
-    // Find user by email
-    const user = await User.findOne({ email });
-    if (!user) {
-      return res.status(404).json({ message: "Email is not found" });
-    }
 
-    // Check if OTP matches
-    const if_otp_match = compareSync(OTP?.toString(), user.OTP);
-    if (!if_otp_match) {
-      return res.status(404).json({ message: "This OTP is not correct" });
-    }
 
-    // Check if passwords match
-    if (new_password !== confirm_password) {
-      return res.status(403).json({ message: "Passwords do not match" });
-    }
 
-    // Hash new password
-    const hash_new_pass = hashSync(new_password, +process.env.PASSWORD_SALT);
 
-    // Update password and clear OTP
-    user.Password = hash_new_pass;
-    user.OTP = "";
-    const updated_user = await user.save();
 
-    if (!updated_user) {
-      return res
-        .status(409)
-        .json({ message: "Something went wrong while updating password" });
-    }
-
-    // Send confirmation email
-    send_Email_event.emit("Send_Email", {
-      to: user.email,
-      subject: "Secure your account (mathematicians-academy)",
-      html: `<h1>From your account ${user.email} at mathematicians-academy</h1>
-             <p>Your password has been changed. If this was not you, please contact us immediately.</p>`,
-    });
-
-    return res
-      .status(200)
-      .json({ message: "Password has been changed successfully" });
-  } catch (error) {
-    console.error("Error in verify forget password service:", error);
-    return res.status(500).json({ message: "Internal server error" });
-  }
-};
-
-// Service to reset password directly (no OTP)
-export const reset_password_service = async (req, res) => {
-  try {
-    const { email, new_password, confirm_password } = req.body;
-
-    // Check if passwords match
-    if (new_password !== confirm_password) {
-      return res
-        .status(400)
-        .json({ message: "Password does not match confirmation password" });
-    }
-
-    // Find user by email
-    const user = await User.findById({ email });
-    if (!user) {
-      return res.status(404).json({ message: "Email is not found" });
-    }
-
-    // Hash new password
-    const hash_new_pass = hashSync(new_password, +process.env.PASSWORD_SALT);
-
-    // Update password
-    user.Password = hash_new_pass;
-    const updated_user = await user.save();
-
-    if (!updated_user) {
-      return res.status(409).json({ message: "Failed to reset password" });
-    }
-
-    // Send confirmation email
-    send_Email_event.emit("Send_Email", {
-      to: user.email,
-      subject: "Secure your account (mathematicians-academy)",
-      html: `<h1>From your account ${user.email} at mathematicians-academy</h1>
-             <p>Your password has been changed. If this was not you, please contact us immediately.</p>`,
-    });
-
-    // Example: Add token to blacklist (optional, based on your auth logic)
-    // await BlacklistToken_Model.create({
-    //   TokenId: /* token from middleware */,
-    //   expires_at: new Date(Date.now() + 1000 * 60 * 60 * 24) // 24 hours
-    // });
-
-    return res
-      .status(200)
-      .json({ message: "Password has been reset successfully" });
-  } catch (error) {
-    console.error("Error in reset password service:", error);
-    return res.status(500).json({ message: "Internal server error" });
-  }
-};
