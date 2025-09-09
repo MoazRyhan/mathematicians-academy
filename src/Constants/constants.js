@@ -14,6 +14,11 @@ export const system_role = {
 const { USER , ADMIN  } = system_role
 
 
+// 📂 admin.enum.js
+export const ATTENDANCE_TYPE = {
+    QR : "qr", 
+    MANUAL :"manual"
+}
 
 
 // 📂 student.enum.js
@@ -87,16 +92,11 @@ export const EXAM_TYPE = {
     MONTHLY : "monthly"
 };
 
-export const EXAM_QUESTION_TYPE = {
-    MULTIPLE_CHOICE: 'multiple_choice',
-    QUESTION_BANK: 'question_bank' 
-};
 
 export const EXAM_TIME_TYPE = {
     FIXED_TIME: 'fixed_time',
     DEADLINE: 'deadline'
 };
-
 
 
 
@@ -166,6 +166,17 @@ export const TARGET_MODEL_TYPE = {
 };
 
 
+// homework
+
+export const HOMEWORK_QUESTION_TYPE = {
+ MULTIPLE_CHOICE: "multiple_choice",
+ ESSAY :"essay"
+};
+
+export const SECTION_QUESTION_TYPE = {
+ MULTIPLE_CHOICE: "multiple_choice",
+ ESSAY :"essay"
+};
 
 
 // for cloudnary

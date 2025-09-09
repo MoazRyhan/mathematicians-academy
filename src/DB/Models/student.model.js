@@ -50,7 +50,7 @@ const studentSchema = new mongoose.Schema({
     required: true
   },
 
-  center: { type: mongoose.Schema.Types.ObjectId, ref: 'Center' }, // i thing there is no need for this
+  center: { type: String  }, 
 
   status: {
     type: String,

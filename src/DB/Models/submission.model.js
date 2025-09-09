@@ -22,6 +22,7 @@ const submissionSchema = new mongoose.Schema({
 
   answers: [{
     questionId: { type: mongoose.Schema.Types.ObjectId },
+    questionType: { type:String },
     studentAnswer: { type: String },
     isCorrect: { type: Boolean },
     assistantNotes: { type: String },
@@ -43,6 +44,7 @@ const submissionSchema = new mongoose.Schema({
   finalGrade: { type: Number }, // approved grade after supervisor review
 
   deadline: { type: Date, required: true },
+  submissionTime: { type: Date, required: true }
 }, { timestamps: true });
 
 const Submission = mongoose.models.Submission || mongoose.model('Submission', submissionSchema);

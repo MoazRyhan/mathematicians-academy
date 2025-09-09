@@ -20,27 +20,44 @@ const sessionSchema = new mongoose.Schema({
     required: true
   },
 
-  videoQuizzes: [{
-    questionText: { type: String, required: true },
-    options: [{ type: String }],
-    correctAnswer: { type: String, required: true },
-    showAtTime: { type: Number, required: true }, 
-    passingGrade: { type: Number, default: 0 }, 
-    isAdminAddIt: { type: Boolean, default: false },
-  }],
-  studentResults: [{
-    student: { type: mongoose.Schema.Types.ObjectId, ref: 'Student' },
-    score: { type: Number, default: 0 },
-    passed: { type: Boolean, default: false }
+  // ✅ تقسيم الفيديو لأجزاء
+  segments: [{
+    title: { type: String, required: true },       // اسم الجزء
+    startTime: { type: Number, required: true },   // بداية الجزء (بالثواني)
+    endTime: { type: Number, required: true },     // نهاية الجزء (بالثواني)
+    points: { type: Number, required: true },      // النقاط الخاصة بالجزء
+    passingScore: { type: Number, required: true },// الحد الأدنى للنجاح في الجزء
+    questions: [{                                   // الأسئلة الخاصة بالجزء
+      questionText: { type: String, required: true },
+      options: [{ type: String, required: true }],
+      correctAnswer: { type: String, required: true },
+      point: { type: Number, default : 1 },      // النقاط الخاصة بالسوال
+    }]
   }],
 
+  // ✅ إجمالي النقاط
+  totalPoints: { type: Number, default: 0 }, // مجموع نقاط الأجزاء
+
+  // ✅ نتائج الطلاب
+  studentResults: [{
+    student: { type: mongoose.Schema.Types.ObjectId, ref: 'Student' },
+    segmentResults: [{
+      segmentId: { type: mongoose.Schema.Types.ObjectId }, // ID الجزء
+      score: { type: Number, default: 0 },
+      passed: { type: Boolean, default: false }
+    }],
+    totalScore: { type: Number, default: 0 },
+    percentage: { type: Number, default: 0 }, // نسبة النجاح
+    passed: { type: Boolean, default: false },
+    videoWatchPoints: { type: Number, default: 0 }, // بونص لو خلص الفيديو أول مرة
+    completedAt: { type: Date }
+  }],
   homework: { type: mongoose.Schema.Types.ObjectId, ref: 'Homework' },
   section: { type: mongoose.Schema.Types.ObjectId, ref: 'Section' },
   exam: { type: mongoose.Schema.Types.ObjectId, ref: 'Exam' },
 
-  points: { type: Number, default: 0 },
   isActive: { type: Boolean, default: true },
-  price: { type: Number, required: true },
+  price: { type: Number }, // ====================== > no use for this
 
   // 🔹 Availability control
   availabilityType: {
@@ -53,8 +70,11 @@ const sessionSchema = new mongoose.Schema({
     type: Date, // only required if availabilityType = "SCHEDULED"
   },
 
-  createdBy: { type: mongoose.Schema.Types.ObjectId, ref: 'Teacher', required: true },
-  isAdminAddIt: { type: Boolean, default: false }
+  availableTill: { type: Date }, // and this we need it always to know what is the last time fot the session
+
+  createdByTeacher: { type: mongoose.Schema.Types.ObjectId, ref: 'Teacher'},
+  createdByAdmin: { type: mongoose.Schema.Types.ObjectId, ref: 'Admin'}
+
 }, { timestamps: true });
 
 const Session = mongoose.models.session || mongoose.model('Session', sessionSchema);

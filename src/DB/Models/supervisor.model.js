@@ -14,7 +14,7 @@ const supervisorSchema = new mongoose.Schema({
 
   correctionRequest: [{ type: mongoose.Schema.Types.ObjectId, ref: 'CorrectionRequest' }],
 
-  assistantRequest: [{ type: mongoose.Schema.Types.ObjectId, ref: 'AssistantRequest' }], // ✅ جديد
+  assistantRequest: [{ type: mongoose.Schema.Types.ObjectId, ref: 'AssistantRequest' }], // ✅ جديد =====> ( 007 )
   
 }, { timestamps: true });
 

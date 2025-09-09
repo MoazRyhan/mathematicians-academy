@@ -19,6 +19,7 @@ student_controller.post(  "/make_session_payment"  , Multer_host( ImageExtension
 student_controller.get(  "/open_session_video/:sessionId"   , error_handler_middleware(student_services.open_session_video_service)  ) 
 student_controller.get(  "/get_payment_history"   , error_handler_middleware(student_services.get_payment_history_service)  ) 
 student_controller.get("/get_sessions_list", error_handler_middleware(student_services.get_Student_Sessions_service)  ) 
+student_controller.get("/get_Paid_sessions_list", error_handler_middleware(student_services.get_Student_Paid_Sessions_service)  ) 
 
 // submit
 student_controller.post(  "/submit_homework/:sessionId"  , Multer_host( PDFExtension ).single("HomeworkPDF")  , error_handler_middleware(student_services.submit_Homework_Solution_service)  ) 
@@ -28,7 +29,9 @@ student_controller.post(  "/submit_video_quizzes/:sessionId"  , error_handler_mi
 
 // monthly exam
 student_controller.get("/get_monthly_exams",  error_handler_middleware( student_services.get_monthly_exams_service));
-student_controller.post("/submit_monthly_exam/:examId", error_handler_middleware (student_services.submit_monthly_exam_service ) );
+
+// session from the points
+student_controller.post("/redeem_points",  error_handler_middleware(student_services.redeem_points_for_session_service));
 
 
 
