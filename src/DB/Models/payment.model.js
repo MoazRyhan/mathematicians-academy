@@ -18,7 +18,9 @@ const paymentSchema = new mongoose.Schema({
       folderId : String 
     },
   //if code 
-  paymentCode: {  type: mongoose.Schema.Types.ObjectId, ref: 'PaymentCode'  },
+  paymentCodeId: {  type: mongoose.Schema.Types.ObjectId, ref: 'PaymentCode'  },
+
+  paymentCode: {  type: String },
 
   isConfirmed: { type: Boolean, default: false },
 

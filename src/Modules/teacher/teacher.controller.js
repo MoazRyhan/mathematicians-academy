@@ -22,11 +22,11 @@ teacher_controller.use(authentication_middleware() , authorization_middleware([T
 
 
 // session part
-teacher_controller.post("/add_session"  ,  error_handler_middleware(teacher_services.add_Session_teacher_service_teacher )  ) 
+teacher_controller.post("/add_session"  ,  error_handler_middleware(teacher_services.add_Session_teacher_service )  ) 
 
-teacher_controller.put("/update_session/:sessionId" ,  error_handler_middleware(teacher_services.update_session_teacher_service_teacher )  ) 
+teacher_controller.put("/update_session/:sessionId" ,  error_handler_middleware(teacher_services.update_session_teacher_service )  ) 
 
-teacher_controller.delete("/delete_session/:sessionId" ,  error_handler_middleware(teacher_services.delete_session_teacher_service_teacher )  ) 
+teacher_controller.delete("/delete_session/:sessionId" ,  error_handler_middleware(teacher_services.delete_session_teacher_service )  ) 
 
 
 
@@ -60,11 +60,11 @@ teacher_controller.delete("/video-quiz/:sessionId/:quizId", error_handler_middle
 
 
 // exam part 
-teacher_controller.post(  "/add_exam_T" , error_handler_middleware(teacher_services.add_exam_service_teacher));
+teacher_controller.post(  "/add_exam" , error_handler_middleware(teacher_services.add_exam_service));
 
-teacher_controller.put("/update_exam_T/:examId", error_handler_middleware(teacher_services.update_exam_service_teacher));
+teacher_controller.put("/update_exam/:examId", error_handler_middleware(teacher_services.update_exam_service));
 
-teacher_controller.delete("/delete_exam_T/:examId", error_handler_middleware(teacher_services.delete_exam_service_teacher)); 
+teacher_controller.delete("/delete_exam/:examId", error_handler_middleware(teacher_services.delete_exam_service)); 
 
 
 

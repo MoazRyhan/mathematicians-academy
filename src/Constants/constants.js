@@ -92,16 +92,11 @@ export const EXAM_TYPE = {
     MONTHLY : "monthly"
 };
 
-export const EXAM_QUESTION_TYPE = {
-    MULTIPLE_CHOICE: 'multiple_choice',
-    QUESTION_BANK: 'question_bank' 
-};
 
 export const EXAM_TIME_TYPE = {
     FIXED_TIME: 'fixed_time',
     DEADLINE: 'deadline'
 };
-
 
 
 

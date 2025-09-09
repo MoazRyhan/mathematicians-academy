@@ -1,34 +1,35 @@
 import mongoose from "mongoose";
 import { EXAM_TYPE, EXAM_TIME_TYPE } from "../../Constants/constants.js";
 
+const questionSchema = new mongoose.Schema({
+  questionText: { type: String, required: true },
+  options: [{ type: String }], // موجودة في الـ MCQ فقط
+  correctAnswer: { type: String }, // صح للإجابة
+  point: { type: Number, default: 1 }, // كل سؤال له نقاط
+  grade: { type: Number, default: 1 }, // كل سؤال له نقاط
+});
+
+const questionBankGroupSchema = new mongoose.Schema({
+  questionsGroupName: { type: String, required: true }, // اسم المجموعة
+  questions: [questionSchema], // أسئلة داخل المجموعة
+});
+
+
 const examSchema = new mongoose.Schema({
   title: { type: String, required: true },
 
   examType: { type: String, enum: Object.values(EXAM_TYPE), required: true },
 
+  // ✅ الأسئلة
   questions: {
-
-    multipleChoices :[ { 
-    questionText: { type: String, required: true },
-    options: [{ type: String }],       
-    correctAnswer: { type: String },   
-    }],
-
-    essay :[ { 
-    questionText: { type: String, required: true },
-    options: [{ type: String }],       
-    correctAnswer: { type: String },   
-    }],
-
-
-    questionBank: [{
-      questionText: { type: String },
-      options: [{ type: String }],
-      correctAnswer: { type: String },
-    }],
-
-    points: { type: Number, required: true }, // for all
+    multipleChoices: [questionSchema], // أسئلة اختياري
+    essay: [questionSchema],           // أسئلة مقالية
+    questionBank: [questionBankGroupSchema],    // بنك الأسئلة
   },
+
+  totalPoints: { type: Number, default: 0 }, // ✅ مجموع النقاط (يحسب عند الإنشاء)
+  totalGrades: { type: Number, default: 0 }, // ✅ مجموع الدرجات )
+
 
   
   timeType: { type: String, enum: Object.values(EXAM_TIME_TYPE), required: true },
@@ -46,12 +47,6 @@ const examSchema = new mongoose.Schema({
 
   // 🔹 Reference to student submissions
   submissions: [{ type: mongoose.Schema.Types.ObjectId, ref: "Submission" }],  // now
-  
-  pdfSolution: {
-    files :{public_id : String,
-      secure_url : String },
-      folderId : String 
-    },
 
   isActive: { type: Boolean, default: true },
 
@@ -59,6 +54,7 @@ const examSchema = new mongoose.Schema({
   month: { type: String },  
 
 }, { timestamps: true });
+
 
 const Exam = mongoose.models.Exam || mongoose.model('Exam', examSchema);
 export default Exam;

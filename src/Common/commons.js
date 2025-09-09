@@ -56,4 +56,10 @@ export const generateSequentialStudentCode = async (grade, division) => {
 };
 
 
+export  function EGPNow() {
+  const now = new Date();
+ const egyptOffset = 1 * 60 * 60 * 1000; // +1 ساعات
+ const egyptDateNow = new Date(now.getTime() + egyptOffset);
+  return egyptDateNow
 
+}

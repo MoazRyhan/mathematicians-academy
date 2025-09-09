@@ -19,7 +19,7 @@ export const get_AllPayments_service = async (req, res) => {
 
     if (!allowedRoles.includes(req.login_user.role)) {
       return res.status(403).json({
-        message: "❌ Access denied. Only Admin or Accountant can view payments."
+        message: " Access denied. Only Admin or Accountant can view payments."
       });
     }
 
@@ -66,7 +66,7 @@ export const get_AllPayments_service = async (req, res) => {
     });
 
   } catch (error) {
-    console.error("❌ Error in get_AllPayments_service:", error);
+    console.error(" Error in get_AllPayments_service:", error);
     return res.status(500).json({ message: "Internal server error" });
   }
 };
@@ -80,22 +80,22 @@ export const confirm_Payment_service = async (req, res) => {
     const allowedRoles = [system_role.ADMIN, system_role.ACCOUNTANT];
     if (!allowedRoles.includes(role)) {
       return res.status(403).json({
-        message: "❌ Access denied. Only Admin or Accountant can confirm payments."
+        message: " Access denied. Only Admin or Accountant can confirm payments."
       });
     }
 
     // ✅ البحث عن الدفعه
     const payment = await Payment.findById(paymentId);
     if (!payment) {
-      return res.status(404).json({ message: "❌ Payment not found" });
+      return res.status(404).json({ message: " Payment not found" });
     }
 
     if (payment.paymentMethod === PAYMENT_TYPE.CODE) {
-      return res.status(400).json({ message: "❌ Code payments are always confirmed" });
+      return res.status(400).json({ message: " Code payments are always confirmed" });
     }
 
     if (payment.isConfirmed) {
-      return res.status(400).json({ message: "❌ Payment already confirmed" });
+      return res.status(400).json({ message: " Payment already confirmed" });
     }
 
     // ✅ تأكيد الدفع
@@ -105,7 +105,7 @@ export const confirm_Payment_service = async (req, res) => {
     if (role === system_role.ACCOUNTANT) {
       const accountant = await Accountant.findOne({ user: userId });
       if (!accountant) {
-        return res.status(404).json({ message: "❌ Accountant profile not found" });
+        return res.status(404).json({ message: " Accountant profile not found" });
       }
       payment.confirmedByAccountant = accountant._id;
       payment.isConfirmed = true;
@@ -115,7 +115,7 @@ export const confirm_Payment_service = async (req, res) => {
     if (role === system_role.ADMIN) {
       const admin = await Admin.findOne({ user: userId });
       if (!admin) {
-        return res.status(404).json({ message: "❌ Admin profile not found" });
+        return res.status(404).json({ message: " Admin profile not found" });
       }
       payment.confirmedByAdmin = admin._id;
       payment.isConfirmed = true;
@@ -135,7 +135,7 @@ export const confirm_Payment_service = async (req, res) => {
     });
 
   } catch (error) {
-    console.error("❌ Error in confirm_Payment_service:", error);
+    console.error(" Error in confirm_Payment_service:", error);
     return res.status(500).json({ message: "Internal server error" });
   }
 };
@@ -149,24 +149,24 @@ export const add_Student_ToSession_manual_service = async (req, res) => {
     const allowedRoles = [system_role.ADMIN, system_role.ACCOUNTANT];
     if (!allowedRoles.includes(role)) {
       return res.status(403).json({
-        message: "❌ Access denied. Only Admin or Accountant can add students to sessions."
+        message: " Access denied. Only Admin or Accountant can add students to sessions."
       });
     }
 
     if (!DateM) {
-      return res.status(404).json({ message: "❌ the date must be" });
+      return res.status(404).json({ message: " the date must be" });
     }
 
     // ✅ التحقق من الجلسة
     const session = await Session.findById(sessionId);
     if (!session) {
-      return res.status(404).json({ message: "❌ Session not found" });
+      return res.status(404).json({ message: " Session not found" });
     }
 
     // ✅ التحقق من الطالب
     const student = await Student.findById(studentId);
     if (!student) {
-      return res.status(404).json({ message: "❌ Student not found" });
+      return res.status(404).json({ message: " Student not found" });
     }
 
     // ✅ التحقق لو الطالب مسجل بالفعل في الجلسة
@@ -174,13 +174,13 @@ export const add_Student_ToSession_manual_service = async (req, res) => {
       (progress) => progress.session.toString() === sessionId
     );
     if (alreadyAdded) {
-      return res.status(400).json({ message: "❌ Student already enrolled in this session" });
+      return res.status(400).json({ message: " Student already enrolled in this session" });
     }
 
     // ✅ التحقق من الـ grade والـ division
     if (student.grade !== session.grade || student.division !== session.division) {
       return res.status(400).json({
-        message: `❌ Student's grade (${student.grade}) or division (${student.division}) do not match session grade (${session.grade}) or division (${session.division})`
+        message: ` Student's grade (${student.grade}) or division (${student.division}) do not match session grade (${session.grade}) or division (${session.division})`
       });
     }
 
@@ -209,7 +209,7 @@ export const add_Student_ToSession_manual_service = async (req, res) => {
     });
 
   } catch (error) {
-    console.error("❌ Error in add_Student_ToSession_manual_service:", error);
+    console.error(" Error in add_Student_ToSession_manual_service:", error);
     return res.status(500).json({ message: "Internal server error" });
   }
 };

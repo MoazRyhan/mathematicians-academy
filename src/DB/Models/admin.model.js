@@ -38,10 +38,11 @@ const adminSchema = new mongoose.Schema(
       totalPayments: { type: Number, default: 0 },
     },
 
-    // Sessions opened manually by admin =====> ( 007 )
     openedSessions: [
       {
         session: { type: mongoose.Schema.Types.ObjectId, ref: "Session" },
+        openedByAdmin: { type: mongoose.Schema.Types.ObjectId, ref: "Admin" }, // or
+        openedByAccountant: { type: mongoose.Schema.Types.ObjectId, ref: "Accountant" }, // or
         openedAt: { type: Date, default: Date.now },
         reason: { type: String },
       },
