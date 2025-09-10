@@ -12,6 +12,7 @@ import { PAYMENT_TYPE } from "../../../Constants/constants.js";
 import PaymentCode from "../../../DB/Models/paymentCode.model.js";
 import Section from "../../../DB/Models/section.model.js";
 import Exam from "../../../DB/Models/exam.model.js";
+import Homework from './../../../DB/Models/homework.model.js';
 
 
 
@@ -701,7 +702,7 @@ export const submit_Homework_Solution_service = async (req, res) => {
       submissionTime: Date.now()
     });
 
-    //  تحديث sessionProgress في Student
+    //  updata sessionProgress in Student
     const sessionProgressIndex = student.sessionProgress.findIndex(
       sp => sp.session.toString() === sessionId
     );
@@ -718,6 +719,19 @@ export const submit_Homework_Solution_service = async (req, res) => {
     }
 
     await student.save();
+
+
+    //  updata homework
+    const homework = await Homework.findById(sessionExist.homework);
+    if (!homework) {
+      return res.status(400).json({ message: " This homework not exist" });
+    }
+
+   await Homework.updateOne(
+    { _id: sessionExist.homework },
+    { $push: { submissions: newSubmission._id } }
+   );
+
 
     return res.status(201).json({
       message: " Homework submitted successfully",
@@ -810,6 +824,20 @@ export const upload_Section_Material_service = async (req, res) => {
 
     await student.save();
 
+    //  updata section
+    const section = await Section.findById(sessionExist.section);
+    if (!section) {
+      return res.status(400).json({ message: " This section not exist" });
+    }
+
+    console.log(newSubmission._id );
+    
+   await Section.updateOne(
+    { _id: sessionExist.section },
+    { $push: { submissions: newSubmission._id } }
+   );
+
+
     return res.status(201).json({
       message: " Section submitted successfully",
       submission: newSubmission
@@ -820,146 +848,151 @@ export const upload_Section_Material_service = async (req, res) => {
   }
 };
 
-//==================== still under testing ==================
+
 export const submit_VideoQuiz_Answers_service = async (req, res) => {
   try {
     const { sessionId } = req.params;
     const { _id: userId } = req.login_user;
-    const { answers } = req.body; // array of { segmentId, responses: [{ questionId, answer }] }
+    const { responses, segmentId } = req.body; // { segmentId, responses: [{ questionId, answer }] }
 
-    if (!answers || !Array.isArray(answers)) {
-      return res.status(400).json({ message: "Answers must be provided as an array (see API docs)" });
+    if (!responses || !Array.isArray(responses)) {
+      return res.status(400).json({ message: "Responses must be provided as an array" });
     }
 
-    // جلب الطالب
+    // ✅ جلب الطالب
     const student = await Student.findOne({ user: userId });
-    if (!student) {
-      return res.status(404).json({ message: "Student not found" });
-    }
+    if (!student) return res.status(404).json({ message: "Student not found" });
 
-    // جلب السيشن مع الأجزاء
+    // ✅ جلب السيشن
     const session = await Session.findById(sessionId);
-    if (!session) {
-      return res.status(404).json({ message: "Session not found" });
-    }
-
+    if (!session) return res.status(404).json({ message: "Session not found" });
     if (!session.segments || session.segments.length === 0) {
-      return res.status(400).json({ message: "This session has no segments / video quizzes" });
+      return res.status(400).json({ message: "This session has no segments" });
     }
 
-    // منع الإرسال المكرر بناءً على sessionProgress.isQuizSubmitted
+    // ✅ جلب السيجمنت المطلوب
+    const segment = session.segments.find(s => String(s._id) === String(segmentId));
+    if (!segment) {
+      return res.status(400).json({ message: `Invalid segmentId: ${segmentId}` });
+    }
+
+    // 🔍 منع الإرسال المكرر بعد الكويز كله
     const progressIndex = student.sessionProgress.findIndex(sp => String(sp.session) === String(sessionId));
     if (progressIndex > -1 && student.sessionProgress[progressIndex].isQuizSubmitted) {
-      // ممكن نعيد السماح لو عايز (مثلاً لو لم ينجح) — الآن نمنع تماماً
       return res.status(400).json({ message: "You have already submitted this quiz" });
     }
 
-    // احسب إجمالي النقاط للجلسة (من الأجزاء)
-    let sessionTotalPoints = 0;
-    session.segments.forEach(seg => {
-      const segPoints = (seg.questions || []).reduce((s, q) => s + (q.point || 1), 0);
-      sessionTotalPoints += segPoints;
-    });
+    // ✅ حساب نتيجة السيجمنت
+    let segScore = 0;
+    for (const q of segment.questions || []) {
+      const qIdStr = String(q._id);
+      const studentAnswerObj = responses.find(r => String(r.questionId) === qIdStr);
+      if (studentAnswerObj && String(studentAnswerObj.answer) === String(q.correctAnswer)) {
+        segScore += (q.point || 1);
+      }
+    }
 
-    // حساب الدرجات لكل جزء بناءً على الإجابات المرسلة
-    const segmentResults = [];
-    for (const seg of session.segments) {
-      const segIdStr = String(seg._id);
-      const segResponsesObj = answers.find(a => String(a.segmentId) === segIdStr);
-      const responses = (segResponsesObj && Array.isArray(segResponsesObj.responses)) ? segResponsesObj.responses : [];
+    const segPassingScore = (segment.passingScore != null)
+      ? segment.passingScore
+      : Math.ceil(((segment.questions || []).reduce((s, q) => s + (q.point || 1), 0)) * 0.5);
 
-      // حساب نقاط الجزء
-      let segScore = 0;
-      const questionMap = new Map(); // map questionId -> question (for quick lookup)
-      (seg.questions || []).forEach(q => questionMap.set(String(q._id), q));
+    const segPassed = segScore >= segPassingScore;
 
-      // لكل سؤال داخل الجزء، لو جاوب الطالب وجاوب صح نضيف نقاط السؤال
-      for (const q of seg.questions || []) {
-        const qIdStr = String(q._id);
-        const studentAnswerObj = responses.find(r => String(r.questionId) === qIdStr);
-        if (studentAnswerObj) {
-          // قارن الإجابة (string compare). لو تحتاج حساس لحالة الأحرف أو صيغ مختلفة عدّل هنا.
-          const studentAns = studentAnswerObj.answer;
-          const correctAns = q.correctAnswer;
-          if (String(studentAns) === String(correctAns)) {
-            segScore += (q.point || 1);
-          }
-        }
-        // إذا الطالب لم يجب على السؤال => 0 نقطة للسؤال
+    // ✅ تحديث session.studentResults (جزئي أو كامل)
+    const existingResultIndex = session.studentResults.findIndex(r => String(r.student) === String(student._id));
+    if (existingResultIndex > -1) {
+      const prevResult = session.studentResults[existingResultIndex];
+      const segIndex = prevResult.segmentResults.findIndex(r => String(r.segmentId) === String(segment._id));
+
+      if (segIndex > -1) {
+        prevResult.segmentResults[segIndex] = { segmentId: segment._id, score: segScore, passed: segPassed };
+      } else {
+        prevResult.segmentResults.push({ segmentId: segment._id, score: segScore, passed: segPassed });
       }
 
-      // تحقق النجاح في الجزء: مقارنـة النقاط المحققة بالـ passingScore (الـ passingScore مفترض يكون قيمة نقاط)
-      const segPassingScore = (seg.passingScore != null) ? seg.passingScore : Math.ceil(((seg.questions || []).reduce((s, q) => s + (q.point || 1), 0)) * 0.5);
-      const segPassed = segScore >= segPassingScore;
+      // تحديث الإجمالي الجزئي
+      const totalScore = prevResult.segmentResults.reduce((s, r) => s + (r.score || 0), 0);
+      const sessionTotalPoints = session.segments.reduce((s, seg) =>
+        s + (seg.questions || []).reduce((ss, q) => ss + (q.point || 1), 0), 0);
 
-      segmentResults.push({
-        segmentId: seg._id,
-        score: segScore,
-        passed: segPassed
+      prevResult.totalScore = totalScore;
+      prevResult.percentage = Math.round((totalScore / sessionTotalPoints) * 100 * 100) / 100;
+      prevResult.passed = prevResult.segmentResults.length === session.segments.length &&
+                          prevResult.segmentResults.every(r => r.passed);
+
+      prevResult.completedAt = prevResult.passed ? new Date() : null;
+
+    } else {
+      session.studentResults.push({
+        student: student._id,
+        segmentResults: [{ segmentId: segment._id, score: segScore, passed: segPassed }],
+        totalScore: segScore,
+        percentage: 0,
+        passed: segPassed && (session.segments.length === 1),
+        completedAt: segPassed && (session.segments.length === 1) ? new Date() : null
       });
     }
-
-    // حساب النتيجة الكلية والنسبة
-    const totalScore = segmentResults.reduce((s, r) => s + (r.score || 0), 0);
-    const percentage = sessionTotalPoints > 0 ? Math.round((totalScore / sessionTotalPoints) * 100 * 100) / 100 : 0; // دقّة لحد 2 عشرية
-    const overallPassed = segmentResults.every(r => r.passed === true);
-
-    // تحديث session.studentResults (إضافة أو تعديل سجل الطالب)
-    const existingResultIndex = session.studentResults.findIndex(r => String(r.student) === String(student._id));
-    const studentResultEntry = {
-      student: student._id,
-      segmentResults: segmentResults.map(r => ({
-        segmentId: r.segmentId,
-        score: r.score,
-        passed: r.passed
-      })),
-      totalScore,
-      percentage,
-      passed: overallPassed,
-      completedAt: new Date()
-    };
-
-    if (existingResultIndex > -1) {
-      // تعديل
-      session.studentResults[existingResultIndex] = Object.assign(session.studentResults[existingResultIndex], studentResultEntry);
-    } else {
-      session.studentResults.push(studentResultEntry);
-    }
-
     await session.save();
 
-    // تحديث student.sessionProgress: وسمه إنه قدم الـ quiz
-    if (progressIndex > -1) {
-      student.sessionProgress[progressIndex].isQuizSubmitted = true;
-    } else {
-      student.sessionProgress.push({
-        session: sessionId,
-        isQuizSubmitted: true
-      });
+    // ✅ تحديث progress بالـ endTime للسيجمنت الحالي لو نجح
+    if (segPassed) {
+      if (progressIndex > -1) {
+        student.sessionProgress[progressIndex].watchedVideoProgress = segment.endTime;
+      } else {
+        student.sessionProgress.push({
+          session: sessionId,
+          watchedVideoProgress: segment.endTime
+        });
+      }
+      await student.save();
     }
-    await student.save();
 
-    // رد النتيجة المفصّلة
-    const failedSegments = segmentResults.filter(r => !r.passed).map(r => String(r.segmentId));
-
-    if (!overallPassed) {
+    // ✅ الرد لو فشل
+    if (!segPassed) {
       return res.status(200).json({
-        message: "You did not pass all segments. Rewatch the failing segments and try again.",
-        totalScore,
-        percentage,
-        passed: false,
-        failedSegments,
-        segmentResults
+        message: `You did not pass segment "${segment.title}". Please rewatch and retry.`,
+        segmentId,
+        score: segScore,
+        passed: false
       });
     }
 
-    // ناجح
+    // ✅ لو ده آخر Segment والطالب نجح في الكل → ندي Points
+    const isLastSegment = String(session.segments[session.segments.length - 1]._id) === String(segmentId);
+    if (isLastSegment) {
+      student.redeemablePoints = (student.redeemablePoints) + (session.videoWatchPoints);
+
+      if (progressIndex > -1) {
+        student.sessionProgress[progressIndex].isQuizSubmitted = true;
+      } else {
+        student.sessionProgress.push({
+          session: sessionId,
+          isQuizSubmitted: true,
+          watchedVideoProgress: segment.endTime
+        });
+      }
+
+      await student.save();
+
+      return res.status(200).json({
+        message: "Quiz completed successfully — all segments passed",
+        segmentId,
+        score: segScore,
+        passed: true,
+        videoWatchPoints: session.videoWatchPoints || 0
+      });
+    }
+
+    //=================================================== 
+    student.sessionProgress.push({
+      watchedVideoProgress: segment.endTime
+    });
+    // ✅ الرد لو ده مش آخر Segment
     return res.status(200).json({
-      message: "Quiz submitted successfully — all segments passed",
-      totalScore,
-      percentage,
-      passed: true,
-      segmentResults
+      message: `Segment "${segment.title}" passed successfully. You can proceed to the next segment.`,
+      segmentId,
+      score: segScore,
+      passed: true
     });
 
   } catch (error) {
@@ -967,6 +1000,143 @@ export const submit_VideoQuiz_Answers_service = async (req, res) => {
     return res.status(500).json({ message: "Internal server error" });
   }
 };
+
+
+// ==================================== under testing  ===============================
+export const submit_Exam_Solution_service = async (req, res) => {
+  try {
+    const { examId } = req.params;
+    const { _id: userId } = req.login_user;
+    const { answers } = req.body; // مصفوفة اجابات الطالب
+
+    //  Check if file exists
+    if (!req.file) {
+      return res.status(400).json({ message: " PDF file is required" });
+    }
+
+    //  Validate file type
+    if (
+      !PDFExtension.some(type => req.file.mimetype.startsWith(type)) &&
+      req.file.originalname.split(".").pop().toLowerCase() !== "pdf"
+    ) {
+      return res.status(400).json({ message: " Only PDF files are allowed" });
+    }
+
+    //  Find student
+    const student = await Student.findOne({ user: userId });
+    if (!student) {
+      return res.status(400).json({ message: " This student does not exist" });
+    }
+
+    //  Find Exam
+    const examExist = await Exam.findById(examId);
+    if (!examExist || examExist.examType == EXAM_TYPE.MONTHLY || examExist.month) {
+      return res.status(400).json({ message: " Exam not found" });
+    }
+
+    // ================== حساب اجابات الطالب ==================
+    let totalScore = 0;
+    let examTotalPoints = 0;
+    const questionResults = [];
+
+    for (const group of examExist.questions.questionBank) {
+      for (const q of group.questions) {
+        examTotalPoints += (q.point || 1);
+
+        const studentAnsObj = answers?.find(a => String(a.questionId) === String(q._id));
+        if (studentAnsObj) {
+          const isCorrect = String(studentAnsObj.answer) === String(q.correctAnswer);
+          if (isCorrect) {
+            totalScore += (q.point || 1);
+          }
+          questionResults.push({
+            questionId: q._id,
+            studentAnswer: studentAnsObj.answer,
+            correctAnswer: q.correctAnswer,
+            isCorrect,
+            point: q.point
+          });
+        } else {
+          questionResults.push({
+            questionId: q._id,
+            studentAnswer: null,
+            correctAnswer: q.correctAnswer,
+            isCorrect: false,
+            point: q.point
+          });
+        }
+      }
+    }
+
+    const percentage = examTotalPoints > 0
+      ? Math.round((totalScore / examTotalPoints) * 100 * 100) / 100
+      : 0;
+    const passed = percentage >= 50; // ✅ شرط النجاح (مثلاً 50%)
+
+    //  Upload PDF to Cloudinary
+    const folderPath = `${process.env.FOLDER_NAME_CLOUDINARY}/User/Submissions/Exams/${examExist.title}`;
+    const uploadResult = await cloudinary().uploader.upload(req.file.path, {
+      folder: folderPath,
+      resource_type: "raw",
+      format: "pdf"
+    });
+
+    if (!uploadResult?.public_id || !uploadResult?.secure_url) {
+      return res.status(500).json({ message: " Failed to upload file to Cloudinary" });
+    }
+
+    //  Create new submission
+    const newSubmission = await Submission.create({
+      student: student._id,
+      exam: examExist._id,
+      submissionType: SUBMISSION_TYPE.EXAM,
+      pdfSolution: {
+        files: { public_id: uploadResult.public_id, secure_url: uploadResult.secure_url },
+        folderId: folderPath
+      },
+      deadline: examExist.deadline,
+      submissionTime : Date.now() ,
+      result: {
+        questionResults,
+        totalScore,
+        percentage,
+        passed
+      }
+    });
+
+    //  Add submission to Exam
+    examExist.submissions.push(newSubmission._id);
+    await examExist.save();
+
+    //  Update Student sessionProgress
+    const sessionProgressIndex = student.sessionProgress.findIndex(
+      sp => sp.session?.toString() === examExist.relatedSession?.toString()
+    );
+
+    if (sessionProgressIndex !== -1) {
+      student.sessionProgress[sessionProgressIndex].isExamSubmitted = true;
+      student.sessionProgress[sessionProgressIndex].examSubmission = newSubmission._id;
+    } else {
+      student.sessionProgress.push({
+        session: examExist.relatedSession,
+        isExamSubmitted: true,
+        examSubmission: newSubmission._id
+      });
+    }
+
+    await student.save();
+    
+    return res.status(201).json({
+      message: " Exam submitted successfully",
+      submission: newSubmission
+    });
+
+  } catch (error) {
+    console.error(" Error in submit_Exam_Solution_service:", error);
+    return res.status(500).json({ message: "Internal server error" });
+  }
+};
+
 
 
 
@@ -1059,92 +1229,6 @@ export const redeem_points_for_session_service = async (req, res) => {
 };
 
 
-export const submit_Exam_Solution_service = async (req, res) => {
-  try {
-    const { examId } = req.params;
-    const { _id: userId } = req.login_user;
-
-    //  Check if file exists
-    if (!req.file) {
-      return res.status(400).json({ message: " PDF file is required" });
-    }
-
-    //  Validate file type
-    if (
-      !PDFExtension.some(type => req.file.mimetype.startsWith(type)) &&
-      req.file.originalname.split(".").pop().toLowerCase() !== "pdf"
-    ) {
-      return res.status(400).json({ message: " Only PDF files are allowed" });
-    }
-
-    //  Find student
-    const student = await Student.findOne({ user: userId });
-    if (!student) {
-      return res.status(400).json({ message: " This student does not exist" });
-    }
-
-    //  Find Exam
-    const examExist = await Exam.findById(examId);
-    if (!examExist  || examExist.examType == EXAM_TYPE.MONTHLY  || examExist.month  ) {
-      return res.status(400).json({ message: " Exam not found" });
-    }
-
-    //  Upload PDF to Cloudinary
-    const folderPath = `${process.env.FOLDER_NAME_CLOUDINARY}/User/Submissions/Exams/${examExist.title}`;
-    const uploadResult = await cloudinary().uploader.upload(req.file.path, {
-      folder: folderPath,
-      resource_type: "raw",
-      format: "pdf"
-    });
-
-    if (!uploadResult?.public_id || !uploadResult?.secure_url) {
-      return res.status(500).json({ message: " Failed to upload file to Cloudinary" });
-    }
-
-    //  Create new submission
-    const newSubmission = await Submission.create({
-      student: student._id,
-      exam: examExist._id,
-      submissionType: SUBMISSION_TYPE.EXAM,
-      pdfSolution: {
-        files: { public_id: uploadResult.public_id, secure_url: uploadResult.secure_url },
-        folderId: folderPath
-      },
-      deadline: examExist.deadline
-    });
-
-    //  Add submission to Exam
-    examExist.submissions.push(newSubmission._id);
-    await examExist.save();
-
-    //  Update Student sessionProgress
-    const sessionProgressIndex = student.sessionProgress.findIndex(
-      sp => sp.session?.toString() === examExist.relatedSession?.toString()
-    );
-
-    if (sessionProgressIndex !== -1) {
-      student.sessionProgress[sessionProgressIndex].isExamSubmitted = true;
-      student.sessionProgress[sessionProgressIndex].examSubmission = newSubmission._id;
-    } else {
-      student.sessionProgress.push({
-        session: examExist.relatedSession,
-        isExamSubmitted: true,
-        examSubmission: newSubmission._id
-      });
-    }
-
-    await student.save();
-
-    return res.status(201).json({
-      message: " Exam submitted successfully",
-      submission: newSubmission
-    });
-
-  } catch (error) {
-    console.error(" Error in submit_Exam_Solution_service:", error);
-    return res.status(500).json({ message: "Internal server error" });
-  }
-};
 
 
 

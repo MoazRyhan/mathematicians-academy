@@ -81,7 +81,8 @@ export const add_Session_teacher_service = async (req, res) => {
       isActive,
       availabilityType,
       availableAt,
-      availableTill
+      availableTill,
+      videoWatchPoints
     } = req.body;
 
     const { _id: loginUserId, role: ROLE } = req.login_user;
@@ -105,8 +106,8 @@ export const add_Session_teacher_service = async (req, res) => {
       return res.status(403).json({ message: " You are not allowed to perform this action" });
     }
     
-    if (!availableTill || !videoLink || !title || !grade || !division || !availabilityType) {
-      return res.status(400).json({ message: " availableTill || videoLink || title || grade || division || availabilityType are required" });
+    if (!availableTill || !videoLink || !title || !grade || !division || !availabilityType || !videoWatchPoints ) {
+      return res.status(400).json({ message: " availableTill || videoLink || title || grade || division || availabilityType || videoWatchPoints are required" });
     }
     
     if (grade && !Object.values(STUDENT_ENUMS.GRADE).includes(grade)) {
@@ -229,7 +230,8 @@ export const add_Session_teacher_service = async (req, res) => {
       availableAt: availabilityType === SESSION_TIME.SCHEDULED ? availableAt : Date.now(),
       availableTill,
       createdByTeacher: createdByTeacher || null,
-      createdByAdmin: createdByAdmin || null
+      createdByAdmin: createdByAdmin || null,
+      videoWatchPoints ,
     });
 
     await newSession.save();
@@ -1200,6 +1202,23 @@ export const add_exam_service = async (req, res) => {
       return res.status(400).json({ message: " Please fill in all required fields" });
     }
 
+    let createdByAdmin;
+    let createdByTeacher;
+    if (ROLE === system_role.TEACHER) {
+      const teacher = await Teacher.findOne({ user: loginUserId });
+      if (!teacher) {
+        return res.status(404).json({ message: " Teacher not found" });
+      }
+      createdByTeacher = teacher._id;
+    } else if (ROLE === system_role.ADMIN) {
+      const admin = await Admin.findOne({ user: loginUserId });
+      if (!admin) {
+        return res.status(404).json({ message: " Admin not found" });
+      }
+      createdByAdmin = admin._id;
+    } else {
+      return res.status(403).json({ message: " You are not allowed to perform this action" });
+    }
 
     // if the exam is monthly
     if (examType === EXAM_TYPE.MONTHLY ) {
@@ -1333,24 +1352,6 @@ export const add_exam_service = async (req, res) => {
       }
     }
 
-    // ✅ تحديد من الذي أنشأ الامتحان
-    let createdByAdmin;
-    let createdByTeacher;
-    if (ROLE === system_role.TEACHER) {
-      const teacher = await Teacher.findOne({ user: loginUserId });
-      if (!teacher) {
-        return res.status(404).json({ message: " Teacher not found" });
-      }
-      createdByTeacher = teacher._id;
-    } else if (ROLE === system_role.ADMIN) {
-      const admin = await Admin.findOne({ user: loginUserId });
-      if (!admin) {
-        return res.status(404).json({ message: " Admin not found" });
-      }
-      createdByAdmin = admin._id;
-    } else {
-      return res.status(403).json({ message: " You are not allowed to perform this action" });
-    }
 
     // ✅ إنشاء الامتحان
     const newExam = await Exam.create({

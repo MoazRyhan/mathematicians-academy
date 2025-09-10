@@ -37,6 +37,7 @@ const sessionSchema = new mongoose.Schema({
 
   // ✅ إجمالي النقاط
   totalPoints: { type: Number, default: 0 }, // مجموع نقاط الأجزاء
+  videoWatchPoints: { type: Number, default: 0 }, // بونص لو خلص الفيديو أول مرة
 
   // ✅ نتائج الطلاب
   studentResults: [{
@@ -49,7 +50,6 @@ const sessionSchema = new mongoose.Schema({
     totalScore: { type: Number, default: 0 },
     percentage: { type: Number, default: 0 }, // نسبة النجاح
     passed: { type: Boolean, default: false },
-    videoWatchPoints: { type: Number, default: 0 }, // بونص لو خلص الفيديو أول مرة
     completedAt: { type: Date }
   }],
   homework: { type: mongoose.Schema.Types.ObjectId, ref: 'Homework' },
