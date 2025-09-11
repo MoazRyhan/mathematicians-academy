@@ -30,7 +30,12 @@ assistant_controller.post("/request/submission_override",error_handler_middlewar
 
 
 // correct the submissions
-assistant_controller.put("/correct_submission" ,error_handler_middleware( assistant_services.correct_submission_service)); // 3apis
+assistant_controller.put("/correct_exam_submission" ,error_handler_middleware( assistant_services.correct_exam_submission_service)); // 2apis
+assistant_controller.put("/correct_Homework&Section_submission" ,error_handler_middleware( assistant_services.correct_exam_submission_service)); // 2apis
+
+
+
+
 assistant_controller.post("correct_to_supervisor/:assistantId", error_handler_middleware ( assistant_services.send_correction_to_supervisor_service));
 
 

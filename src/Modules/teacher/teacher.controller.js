@@ -22,11 +22,11 @@ teacher_controller.use(authentication_middleware() , authorization_middleware([T
 
 
 // session part
-teacher_controller.post("/add_session"  ,  error_handler_middleware(teacher_services.add_Session_teacher_service )  ) 
+teacher_controller.post("/add_session"  ,  error_handler_middleware(teacher_services.add_Session_service )  ) 
 
-teacher_controller.put("/update_session/:sessionId" ,  error_handler_middleware(teacher_services.update_session_teacher_service )  ) 
+teacher_controller.put("/update_session/:sessionId" ,  error_handler_middleware(teacher_services.update_session_service )  ) 
 
-teacher_controller.delete("/delete_session/:sessionId" ,  error_handler_middleware(teacher_services.delete_session_teacher_service )  ) 
+teacher_controller.delete("/delete_session/:sessionId" ,  error_handler_middleware(teacher_services.delete_session_service )  ) 
 
 
 

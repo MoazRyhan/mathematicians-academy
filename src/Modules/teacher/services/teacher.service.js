@@ -68,7 +68,7 @@ export const get_teacher_data_service = async (req, res) => {
 
 // ======================== 👨‍🏫 teacher add session ❤
 
-export const add_Session_teacher_service = async (req, res) => {
+export const add_Session_service = async (req, res) => {
   try {
     const {
       title,
@@ -247,7 +247,7 @@ export const add_Session_teacher_service = async (req, res) => {
   }
 };
 
-export const update_session_teacher_service = async (req, res) => {
+export const update_session_service = async (req, res) => {
   try {
     const { sessionId } = req.params;
     const { _id: loginUserId, role: ROLE } = req.login_user;
@@ -427,7 +427,7 @@ export const update_session_teacher_service = async (req, res) => {
   }
 };
 
-export const delete_session_teacher_service  = async (req, res) => {
+export const delete_session_service  = async (req, res) => {
   try {
     const { _id :loginUserId ,role: ROLE  } = req.login_user;
     const { sessionId } = req.params;
@@ -1194,11 +1194,12 @@ export const add_exam_service = async (req, res) => {
       month,
       isActive,
       grade,
-      division
+      division ,
+      passingScore
     } = req.body;
 
     // ✅ تحقق من الحقول الأساسية
-    if (!title || !examType || !timeType || !questions || !grade || !division || !duration ) {
+    if (!title || !examType || !timeType || !questions || !grade || !division || !duration || !passingScore ) {
       return res.status(400).json({ message: " Please fill in all required fields" });
     }
 
@@ -1243,13 +1244,16 @@ export const add_exam_service = async (req, res) => {
       return res.status(400).json({ message: " 2 and 3 grade must have division literary or scientific" });
     }
 
-    }
-    if (examType === EXAM_TYPE.MONTHLY && !month) {
+    if ( !month) {
    return res.status(400).json({ message: " Month is required for monthly exams" });
     }   
-    if (examType === EXAM_TYPE.MONTHLY && relatedSession) {
+    if ( relatedSession) {
       return res.status(400).json({ message: " Monthly exams cannot have relatedSession" });
     }
+
+
+    }
+
     
 
 
@@ -1265,14 +1269,17 @@ export const add_exam_service = async (req, res) => {
       if (!session) {
         return res.status(400).json({ message: " Related session not found" });
       }
+
+    if (!relatedSession) {
+      return res.status(400).json({ message: " You must provide relatedSession for session exams" });
+    }
+
       sessionId = session._id
       sessionGrade = session.grade
       sessionDivision = session.division
     }
 
-    if (examType === EXAM_TYPE.SESSION && !relatedSession) {
-      return res.status(400).json({ message: " You must provide relatedSession for session exams" });
-    }
+
 
 
 
@@ -1284,6 +1291,12 @@ export const add_exam_service = async (req, res) => {
 
     if (timeType === EXAM_TIME_TYPE.DEADLINE &&  !deadline   ) {
       return res.status(400).json({ message: " when the exam is deadline need to have deadline" });
+    }
+
+
+    // check the passingScore
+    if ( passingScore >= 100 ) {
+      return res.status(400).json({ message: " passing score must not pass 100 or = it " });
     }
 
 
@@ -1371,7 +1384,8 @@ export const add_exam_service = async (req, res) => {
       grade : examType == EXAM_TYPE.MONTHLY ? grade : sessionGrade ,
       division : examType == EXAM_TYPE.MONTHLY ? division : sessionDivision ,
       totalPoints,
-      totalGrades
+      totalGrades ,
+      passingScore
     });
 
 

@@ -29,10 +29,18 @@ admin_controller.post(  "/generate-codes" , error_handler_middleware(admin_servi
 admin_controller.post("/open_session_for_all/:sessionId", error_handler_middleware(admin_services.open_session_for_all_students_service));
 
 
-
-// under testing
-admin_controller.post("/assign-assistant", error_handler_middleware(admin_services.assign_Assistant_To_Supervisor_service));
+// register attendance
 admin_controller.post("/register-attendance",   error_handler_middleware(admin_services.register_Student_Attendance_service));
+
+
+// reset_password
+admin_controller.post("/reset_password",  error_handler_middleware(admin_services.admin_Reset_Password_service));
+
+
+
+// ========================= under testing
+
+admin_controller.post("/assign_assistant", error_handler_middleware(admin_services.assign_Assistant_To_Supervisor_service));
 
 
 admin_controller.put(  "/update_group_members" , error_handler_middleware(admin_services.update_group_members_service ));

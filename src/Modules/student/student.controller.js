@@ -28,7 +28,7 @@ student_controller.post(  "/submit_exam/:examId"  , Multer_host( PDFExtension ).
 student_controller.post(  "/submit_video_quizzes/:sessionId"  , error_handler_middleware(student_services.submit_VideoQuiz_Answers_service)  ) 
 
 // monthly exam
-student_controller.get("/get_monthly_exams",  error_handler_middleware( student_services.get_monthly_exams_service));
+student_controller.get("/get_exams",  error_handler_middleware( student_services.get_exams_service));
 
 // session from the points
 student_controller.post("/redeem_points",  error_handler_middleware(student_services.redeem_points_for_session_service));

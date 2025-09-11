@@ -14,9 +14,7 @@ const userSchema = new mongoose.Schema({
   
   phoneNumber: { type: String , require :true },
 
-  isActive: { type: Boolean, default: true },
-
-  OTP : { type : String , default : null  }
+  isActive: { type: Boolean, default: true }
   
 }, { timestamps: true });
 

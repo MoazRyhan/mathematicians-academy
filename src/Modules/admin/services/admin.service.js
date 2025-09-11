@@ -584,7 +584,7 @@ export const remove_user_service = async (req, res) => {
 };
 
 
-
+//=========================================== random things
 
 export const generate_payment_codes_service = async (req, res) => {
   try {
@@ -624,119 +624,6 @@ export const generate_payment_codes_service = async (req, res) => {
 
 
 
-// any thing below is under testing
-//===============================
-
-
-
-
-
-
-export const open_session_for_all_students_service = async (req, res) => {
-  try {
-    const { sessionId } = req.params;
-    const { _id: adminId } = req.login_user; 
-
-    const adminRecord = await Admin.findOne({ user: adminId });
-    if (!adminRecord) {
-      return res.status(403).json({ message: " Only admins can delete exams" });
-    }
-
-    // ✅ جلب السيشن
-    const session = await Session.findById(sessionId);
-    if (!session) {
-      return res.status(404).json({ message: "Session not found" });
-    }
-
-    // ✅ جلب كل الطلاب اللي عندهم نفس division والgrade
-    const students = await Student.find({
-      division: session.division,
-      grade: session.grade
-    });
-
-    if (students.length === 0) {
-      return res.status(404).json({ message: "No students found for this division and grade" });
-    }
-
-    // ✅ تجهيز تاريخ انتهاء بعد 7 أيام
-    const expirationDate = new Date();
-    expirationDate.setDate(expirationDate.getDate() + 7);
-
-    let updatedCount = 0;
-
-    // ✅ تحديث كل طالب
-    for (const student of students) {
-      const existingProgress = student.sessionProgress.find(
-        sp => sp.session.toString() === sessionId
-      );
-
-      if (!existingProgress) {
-        student.sessionProgress.push({
-          session: sessionId,
-          isPaid: true,
-          expirationDate
-        });
-        await student.save();
-        updatedCount++;
-      }
-    }
-
-    return res.status(200).json({
-      message: `Session opened for ${updatedCount} students`,
-      totalStudents: students.length,
-      updatedStudents: updatedCount,
-      session: {
-        id: session._id,
-        name: session.name,
-        division: session.division,
-        grade: session.grade
-      }
-    });
-
-  } catch (error) {
-    console.error("Error in admin_open_session_for_all_students_service ==========>", error);
-    return res.status(500).json({ message: "Internal server error" });
-  }
-};
-
-// important / new things 
-export const assign_Assistant_To_Supervisor_service = async (req, res) => {
-  try {
-    const { supervisorId, assistantId } = req.body;
-
-    if (!supervisorId || !assistantId) {
-      return res.status(400).json({ message: " supervisorId and assistantId are required" });
-    }
-
-    const supervisor = await Supervisor.findById(supervisorId);
-    if (!supervisor) {
-      return res.status(404).json({ message: " Supervisor not found" });
-    }
-
-    const assistant = await Assistant.findById(assistantId);
-    if (!assistant) {
-      return res.status(404).json({ message: " Assistant not found" });
-    }
-
-    //  Update supervisor
-    if (!supervisor.assistants.includes(assistantId)) {
-      supervisor.assistants.push(assistantId);
-    }
-
-    //  Update assistant
-    assistant.supervisor = supervisorId;
-
-    await supervisor.save();
-    await assistant.save();
-
-    return res.status(200).json({ message: " Assistant assigned successfully", supervisor, assistant });
-  } catch (error) {
-    console.error(" Error in assignAssistantToSupervisor:", error);
-    return res.status(500).json({ message: "Internal server error" });
-  }
-};
-
-// important  / new things
 export const register_Student_Attendance_service = async (req, res) => {
   try {
     const { studentId, sessionId, method } = req.body; // method = qr | manual
@@ -783,7 +670,6 @@ export const register_Student_Attendance_service = async (req, res) => {
       //  إضافة الحصة للطالب مع صلاحية 7 أيام
       student.sessionProgress.push({
         session: sessionId,
-        isPaid: true, // نعتبره مدفوع عشان يشتغل
         expirationDate: new Date(Date.now() + 7 * 24 * 60 * 60 * 1000), // +7 أيام
         attendanceRegistered: true
       });
@@ -802,6 +688,152 @@ export const register_Student_Attendance_service = async (req, res) => {
   }
 };
 
+
+
+
+export const open_session_for_all_students_service = async (req, res) => {
+  try {
+    const { sessionId } = req.params;
+    const { _id: adminId } = req.login_user; 
+
+    const adminRecord = await Admin.findOne({ user: adminId });
+    if (!adminRecord) {
+      return res.status(403).json({ message: " Only admins can delete exams" });
+    }
+
+    // ✅ جلب السيشن
+    const session = await Session.findById(sessionId);
+    if (!session) {
+      return res.status(404).json({ message: "Session not found" });
+    }
+
+    // ✅ جلب كل الطلاب اللي عندهم نفس division والgrade
+    const students = await Student.find({
+      division: session.division,
+      grade: session.grade
+    });
+
+    if (students.length === 0) {
+      return res.status(404).json({ message: "No students found for this division and grade" });
+    }
+
+    // ✅ تجهيز تاريخ انتهاء بعد 7 أيام
+    const expirationDate = new Date();
+    expirationDate.setDate(expirationDate.getDate() + 7);
+
+    let updatedCount = 0;
+
+    // ✅ تحديث كل طالب
+    for (const student of students) {
+      const existingProgress = student.sessionProgress.find(
+        sp => sp.session.toString() === sessionId
+      );
+
+      if (!existingProgress) {
+        student.sessionProgress.push({
+          session: sessionId,
+          expirationDate
+        });
+        await student.save();
+        updatedCount++;
+      }
+    }
+
+    return res.status(200).json({
+      message: `Session opened for ${updatedCount} students`,
+      totalStudents: students.length,
+      updatedStudents: updatedCount,
+      session: {
+        id: session._id,
+        name: session.name,
+        division: session.division,
+        grade: session.grade
+      }
+    });
+
+  } catch (error) {
+    console.error("Error in admin_open_session_for_all_students_service ==========>", error);
+    return res.status(500).json({ message: "Internal server error" });
+  }
+};
+
+
+export const admin_Reset_Password_service = async (req, res) => {
+  try {
+    const { userId, newPassword } = req.body;
+    const { role } = req.login_user;
+
+    // ✅ لازم يكون الأدمن
+    if (role !==  system_role.ADMIN ) {
+      return res.status(403).json({ message: "Access denied" });
+    }
+
+    // ✅ نلاقي اليوزر
+    const user = await User.findById(userId);
+    if (!user) {
+      return res.status(404).json({ message: "User not found" });
+    }
+
+
+    // 6️⃣ Hash password
+    const hashedPassword = hashSync(newPassword, +process.env.PASSWORD_SALT);
+
+    // ✅ نحدّث الباسورد + نطلب منه يغيره بعدين
+    user.password = hashedPassword;
+    await user.save();
+
+    return res.status(200).json({ message: "Password reset successfully. User must change password on next login." });
+
+  } catch (error) {
+    console.error("Error in adminResetPassword:", error);
+    return res.status(500).json({ message: "Internal server error" });
+  }
+};
+
+
+// any thing below is under testing
+//===============================
+
+
+
+
+
+
+export const assign_Assistant_To_Supervisor_service = async (req, res) => {
+  try {
+    const { supervisorId, assistantId } = req.body;
+
+    if (!supervisorId || !assistantId) {
+      return res.status(400).json({ message: " supervisorId and assistantId are required" });
+    }
+
+    const supervisor = await Supervisor.findById(supervisorId);
+    if (!supervisor) {
+      return res.status(404).json({ message: " Supervisor not found" });
+    }
+
+    const assistant = await Assistant.findById(assistantId);
+    if (!assistant) {
+      return res.status(404).json({ message: " Assistant not found" });
+    }
+
+    //  Update supervisor
+    if (!supervisor.assistants.includes(assistantId)) {
+      supervisor.assistants.push(assistantId);
+    }
+
+    //  Update assistant
+    assistant.supervisor = supervisorId;
+
+    await supervisor.save();
+    await assistant.save();
+
+    return res.status(200).json({ message: " Assistant assigned successfully", supervisor, assistant });
+  } catch (error) {
+    console.error(" Error in assignAssistantToSupervisor:", error);
+    return res.status(500).json({ message: "Internal server error" });
+  }
+};
 
 
 

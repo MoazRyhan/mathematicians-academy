@@ -13,6 +13,7 @@ import PaymentCode from "../../../DB/Models/paymentCode.model.js";
 import Section from "../../../DB/Models/section.model.js";
 import Exam from "../../../DB/Models/exam.model.js";
 import Homework from './../../../DB/Models/homework.model.js';
+import { shuffleArray } from "../../../Common/commons.js";
 
 
 
@@ -1002,12 +1003,22 @@ export const submit_VideoQuiz_Answers_service = async (req, res) => {
 };
 
 
-// ==================================== under testing  ===============================
 export const submit_Exam_Solution_service = async (req, res) => {
   try {
     const { examId } = req.params;
     const { _id: userId } = req.login_user;
-    const { answers } = req.body; // مصفوفة اجابات الطالب
+    let { answers } = req.body; // [{ questionId, answer }]
+
+    console.log( req.body.answers );
+    
+    // لو جايالي كـ string من form-data
+  if (typeof answers === "string") {
+  try {
+    answers = JSON.parse(answers);
+  } catch (err) {
+    return res.status(400).json({ message: "Invalid answers JSON format" });
+  }
+}
 
     //  Check if file exists
     if (!req.file) {
@@ -1030,51 +1041,141 @@ export const submit_Exam_Solution_service = async (req, res) => {
 
     //  Find Exam
     const examExist = await Exam.findById(examId);
-    if (!examExist || examExist.examType == EXAM_TYPE.MONTHLY || examExist.month) {
+    if (!examExist ) {
       return res.status(400).json({ message: " Exam not found" });
     }
 
-    // ================== حساب اجابات الطالب ==================
-    let totalScore = 0;
-    let examTotalPoints = 0;
-    const questionResults = [];
+    // ================== Validate Answers IDs ==================
+    const validQuestionIds = new Set();
 
-    for (const group of examExist.questions.questionBank) {
-      for (const q of group.questions) {
-        examTotalPoints += (q.point || 1);
-
-        const studentAnsObj = answers?.find(a => String(a.questionId) === String(q._id));
-        if (studentAnsObj) {
-          const isCorrect = String(studentAnsObj.answer) === String(q.correctAnswer);
-          if (isCorrect) {
-            totalScore += (q.point || 1);
-          }
-          questionResults.push({
-            questionId: q._id,
-            studentAnswer: studentAnsObj.answer,
-            correctAnswer: q.correctAnswer,
-            isCorrect,
-            point: q.point
-          });
-        } else {
-          questionResults.push({
-            questionId: q._id,
-            studentAnswer: null,
-            correctAnswer: q.correctAnswer,
-            isCorrect: false,
-            point: q.point
-          });
-        }
+    for (const group of examExist.questions.questionBank || []) {
+      for (const q of group.questions || []) {
+        validQuestionIds.add(String(q._id));
       }
     }
 
-    const percentage = examTotalPoints > 0
-      ? Math.round((totalScore / examTotalPoints) * 100 * 100) / 100
-      : 0;
-    const passed = percentage >= 50; // ✅ شرط النجاح (مثلاً 50%)
+    for (const q of examExist.questions.multipleChoices || []) {
+      validQuestionIds.add(String(q._id));
+    }
 
-    //  Upload PDF to Cloudinary
-    const folderPath = `${process.env.FOLDER_NAME_CLOUDINARY}/User/Submissions/Exams/${examExist.title}`;
+    for (const q of examExist.questions.essay || []) {
+      validQuestionIds.add(String(q._id));
+    }
+
+    for (const ans of answers || []) {
+      if (!validQuestionIds.has(String(ans.questionId))) {
+        return res.status(400).json({
+          message: `Invalid questionId: ${ans.questionId} - not found in this exam`
+        });
+      }
+    }
+
+    // ================== Variables ==================
+    let totalScore = 0;        // درجات الطالب (grades)
+    let examTotalGrade = 0;    // مجموع درجات الأسئلة اللي الطالب جاوب عليها
+    let examTotalPoints = 0;   // مجموع نقاط الأسئلة اللي الطالب جاوب عليها
+    let studentPoints = 0;     // النقاط اللي الطالب جابها صح
+
+    const studentAnswers = {
+      questionBank: [],
+      multipleChoices: [],
+      essay: []
+    };
+
+    // 📌 1) Question Bank
+    for (const group of examExist.questions.questionBank || []) {
+      const groupResult = { questionsGroupName: group.questionsGroupName, questions: [] };
+
+      for (const q of group.questions || []) {
+        const studentAnsObj = answers?.find(a => String(a.questionId) === String(q._id));
+        let isCorrect = false;
+
+        if (studentAnsObj) {
+          examTotalGrade += (q.grade || 1);
+          examTotalPoints += (q.point || 1);
+
+          isCorrect = String(studentAnsObj.answer) === String(q.correctAnswer);
+          if (isCorrect) {
+            totalScore += (q.grade || 1);
+            studentPoints += (q.point || 1);
+          }
+        }
+
+        groupResult.questions.push({
+          questionId: q._id,
+          questionText: q.questionText,
+          options: q.options || [],
+          studentAnswer: studentAnsObj ? studentAnsObj.answer : null,
+          correctAnswer: q.correctAnswer,
+          isCorrect,
+          point: q.point,
+          grade: q.grade,
+          assistantNotes: null
+        });
+      }
+
+      studentAnswers.questionBank.push(groupResult);
+    }
+
+    // 📌 2) Multiple Choice
+    for (const q of examExist.questions.multipleChoices || []) {
+      const studentAnsObj = answers?.find(a => String(a.questionId) === String(q._id));
+      let isCorrect = false;
+
+      if (studentAnsObj) {
+        examTotalGrade += (q.grade || 1);
+        examTotalPoints += (q.point || 1);
+
+        isCorrect = String(studentAnsObj.answer) === String(q.correctAnswer);
+        if (isCorrect) {
+          totalScore += (q.grade || 1);
+          studentPoints += (q.point || 1);
+        }
+      }
+
+      studentAnswers.multipleChoices.push({
+        questionId: q._id,
+        questionText: q.questionText,
+        options: q.options || [],
+        studentAnswer: studentAnsObj ? studentAnsObj.answer : null,
+        correctAnswer: q.correctAnswer,
+        isCorrect,
+        point: q.point,
+        grade: q.grade,
+        assistantNotes: null
+      });
+    }
+
+    // 📌 3) Essay
+    for (const q of examExist.questions.essay || []) {
+      const studentAnsObj = answers?.find(a => String(a.questionId) === String(q._id));
+
+      if (studentAnsObj) {
+        examTotalGrade += (q.grade || 1);
+        examTotalPoints += (q.point || 1);
+      }
+
+      studentAnswers.essay.push({
+        questionId: q._id,
+        questionText: q.questionText,
+        studentAnswer: studentAnsObj ? studentAnsObj.answer : null,
+        correctAnswer: null,
+        isCorrect: null,
+        point: q.point,
+        grade: q.grade,
+        assistantNotes: null
+      });
+    }
+
+    // ================== Final score ==================
+    const percentage = examTotalGrade > 0
+      ? Math.round((totalScore / examTotalGrade) * 100 * 100) / 100
+      : 0;
+
+    const passed = percentage >= (examExist.passingScore);
+
+    // ================== رفع الـ PDF ==================
+    const folderPath = `${process.env.FOLDER_NAME_CLOUDINARY}/User/Submissions/Exams/${examExist.title}/${student?._id}`;
     const uploadResult = await cloudinary().uploader.upload(req.file.path, {
       folder: folderPath,
       resource_type: "raw",
@@ -1085,30 +1186,35 @@ export const submit_Exam_Solution_service = async (req, res) => {
       return res.status(500).json({ message: " Failed to upload file to Cloudinary" });
     }
 
-    //  Create new submission
+    // ================== Create Submission ==================
     const newSubmission = await Submission.create({
       student: student._id,
       exam: examExist._id,
-      submissionType: SUBMISSION_TYPE.EXAM,
+      submissionType: examExist?.month ? SUBMISSION_TYPE.MONTHLY_EXAM : SUBMISSION_TYPE.EXAM ,
       pdfSolution: {
         files: { public_id: uploadResult.public_id, secure_url: uploadResult.secure_url },
         folderId: folderPath
       },
-      deadline: examExist.deadline,
-      submissionTime : Date.now() ,
-      result: {
-        questionResults,
-        totalScore,
+      deadline: examExist.deadline || Date.now() ,
+      submissionTime: Date.now(),
+      studentResult : {
+        totalGrade: examTotalGrade,  // ✅ مجموع الدرجات في الامتحان
+        totalPoints: examTotalPoints, // ✅ مجموع النقاط
+        passingScore : examExist.passingScore ,
+
+        studentGrade :  totalScore,        // ✅ درجات الطالب (Grade)
+        studentPoints :  studentPoints,        // ✅ بوينتس الطالب (points)
         percentage,
-        passed
-      }
+        passed,
+        answers: studentAnswers
+  }
     });
 
-    //  Add submission to Exam
+    // Add submission to Exam
     examExist.submissions.push(newSubmission._id);
     await examExist.save();
 
-    //  Update Student sessionProgress
+    // Update student progress
     const sessionProgressIndex = student.sessionProgress.findIndex(
       sp => sp.session?.toString() === examExist.relatedSession?.toString()
     );
@@ -1125,7 +1231,7 @@ export const submit_Exam_Solution_service = async (req, res) => {
     }
 
     await student.save();
-    
+
     return res.status(201).json({
       message: " Exam submitted successfully",
       submission: newSubmission
@@ -1141,7 +1247,8 @@ export const submit_Exam_Solution_service = async (req, res) => {
 
 
 // ======================= monthly exam
-export const get_monthly_exams_service = async (req, res) => {
+
+export const get_exams_service = async (req, res) => {
   try {
     const { _id: userId } = req.login_user;
 
@@ -1150,17 +1257,51 @@ export const get_monthly_exams_service = async (req, res) => {
       return res.status(404).json({ message: " Student not found" });
     }
 
-    //  هجيب الامتحانات الشهرية المرتبطة بجريد الطالب )
+    // ✅ هجيب الامتحانات الشهرية المرتبطة بجريد الطالب
     const exams = await Exam.find({
-      isActive: true,
-      examType : EXAM_TYPE.MONTHLY ,
-      month: { $exists: true, $ne: null },
-    })
+      isActive: true
+    }).lean();
 
-    const filteredExams = exams.filter(exam =>
-      exam?.grade == student.grade &&
-      exam?.division == student.division
-    );
+    const filteredExams = exams
+      // .filter(exam =>
+      //   exam?.grade == student.grade &&
+      //   exam?.division == student.division
+      // )
+      .map(exam => {
+        const randomizedExam = { ...exam };
+
+        // 📌 Bank Questions → سؤال عشوائي من كل جروب
+        if (randomizedExam.questions?.questionBank) {
+          randomizedExam.questions.questionBank =
+            randomizedExam.questions.questionBank.map(group => {
+              if (group.questions?.length > 0) {
+                const randomIndex = Math.floor(Math.random() * group.questions.length);
+                return {
+                  ...group,
+                  questions: [group.questions[randomIndex]]
+                };
+              }
+              return group;
+            });
+        }
+
+        // 📌 Multiple Choice → shuffle للأسئلة + shuffle للـ options
+        if (randomizedExam.questions?.multipleChoices?.length > 0) {
+          randomizedExam.questions.multipleChoices = shuffleArray(
+            randomizedExam.questions.multipleChoices.map(q => ({
+              ...q,
+              options: q.options ? shuffleArray(q.options) : []
+            }))
+          );
+        }
+
+        // 📌 Essay → shuffle للأسئلة
+        if (randomizedExam.questions?.essay?.length > 0) {
+          randomizedExam.questions.essay = shuffleArray(randomizedExam.questions.essay);
+        }
+
+        return randomizedExam;
+      });
 
     return res.status(200).json({
       message: " Monthly exams fetched successfully",
@@ -1172,7 +1313,6 @@ export const get_monthly_exams_service = async (req, res) => {
     return res.status(500).json({ message: "Internal server error" });
   }
 };
-
 
 
 

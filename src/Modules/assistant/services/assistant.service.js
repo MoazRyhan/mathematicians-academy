@@ -4,7 +4,7 @@ import User from "../../../DB/Models/user.model.js";
 import { decryption } from "../../../Utils/encryption.utils.js";
 import CorrectionRequest from './../../../DB/Models/correctionRequest.model.js';
 import AssistantRequest from "../../../DB/Models/assistantRequest.model.js";
-import { ASSISTANT_REQUEST_STATUS, ASSISTANT_REQUEST_TYPE, TARGET_MODEL_TYPE } from "../../../Constants/constants.js";
+import { ASSISTANT_REQUEST_STATUS, ASSISTANT_REQUEST_TYPE, SUBMISSION_TYPE, TARGET_MODEL_TYPE } from "../../../Constants/constants.js";
 import Student from "../../../DB/Models/student.model.js";
 import Session from './../../../DB/Models/session.model.js';
 
@@ -21,7 +21,7 @@ export const get_assistant_data_service = async (req, res) => {
     // 2️⃣ Find the user by email
     const user = await User.findOne({ email }, "-password");
     if (!user) {
-      return res.status(404).json({ message: "❌ User not found" });
+      return res.status(404).json({ message: " User not found" });
     }
 
     // 3️⃣ Find the assistant linked with this user
@@ -33,7 +33,7 @@ export const get_assistant_data_service = async (req, res) => {
       .populate({ path: "assistantRequest", select: "status createdAt" });
 
     if (!assistant) {
-      return res.status(404).json({ message: "❌ Assistant not found" });
+      return res.status(404).json({ message: " Assistant not found" });
     }
 
     // 4️⃣ Decrypt sensitive fields from User
@@ -59,7 +59,7 @@ export const get_assistant_data_service = async (req, res) => {
       assistant: assistantData,
     });
   } catch (error) {
-    console.log("❌ Error from get_assistant_data =====>", error);
+    console.log(" Error from get_assistant_data =====>", error);
     return res.status(500).json({ message: "Internal server error" });
   }
 };
@@ -72,7 +72,7 @@ export const get_assistant_students_service = async (req, res) => {
       .populate("groups", "name students");
 
     if (!assistant) {
-      return res.status(404).json({ message: "❌ Assistant not found" });
+      return res.status(404).json({ message: " Assistant not found" });
     }
 
     return res.status(200).json({
@@ -81,35 +81,51 @@ export const get_assistant_students_service = async (req, res) => {
       groups: assistant.groups
     });
   } catch (error) {
-    console.error("❌ Error in get_assistant_students_service ==============>", error);
+    console.error(" Error in get_assistant_students_service ==============>", error);
     return res.status(500).json({ message: "Internal server error" });
   }
 };
+
 export const get_assistant_submissions_service = async (req, res) => {
   try {
     const { _id: assistantId } = req.login_user;
+    const { submissionType } = req.query; // ✅ ييجي من الكويري
 
+    // ✅ نلاقي الأسستنت
     const assistant = await Assistant.findOne({ user: assistantId }).populate("students");
     if (!assistant) {
-      return res.status(404).json({ message: "❌ Assistant not found" });
+      return res.status(404).json({ message: " Assistant not found" });
     }
 
     const studentIds = assistant.students.map(s => s._id);
 
-    const submissions = await Submission.find({ student: { $in: studentIds } ,
-       /* this is for the submission that does not corrected from the assistant * isCorrected :false */  })
-      // .populate("homework exam section", "pdfSolution"); // for abdu to customize it
+    // ✅ فلترة على نوع السبميشن لو موجود
+    const filter = { student: { $in: studentIds }, isCorrected: false };
+
+    if (submissionType) {
+      // ✅ نتأكد إنه قيمة صحيحة من السبمشن تايب
+      const validTypes = Object.values(SUBMISSION_TYPE);
+      if (!validTypes.includes(submissionType)) {
+        return res.status(400).json({
+          message: ` Invalid submissionType. Allowed values: ${validTypes.join(", ")}`
+        });
+      }
+      filter.submissionType = submissionType;
+    }
+
+    const submissions = await Submission.find(filter)
+      .populate("homework exam section session", "pdfSolution");
 
     return res.status(200).json({
       message: "✅ Submissions fetched successfully",
+      count: submissions.length,
       submissions
     });
   } catch (error) {
-    console.error("❌ Error in get_assistant_submissions_service ==============>", error);
+    console.error(" Error in get_assistant_submissions_service ==============>", error);
     return res.status(500).json({ message: "Internal server error" });
   }
 };
-
 
 // ==================== approve students
 
@@ -120,7 +136,7 @@ export const get_Pending_Students_service = async (req, res) => {
     // ✅ تحقق أن المستخدم Assistant
     const assistant = await Assistant.findOne({ user: _id });
     if (!assistant) {
-      return res.status(403).json({ message: "❌ Only assistants can view pending students" });
+      return res.status(403).json({ message: " Only assistants can view pending students" });
     }
 
     // ✅ جلب الطلاب اللي حالتهم Pending
@@ -135,7 +151,7 @@ export const get_Pending_Students_service = async (req, res) => {
     });
 
   } catch (error) {
-    console.error("❌ Error in listPendingStudents =====================>", error);
+    console.error(" Error in listPendingStudents =====================>", error);
     return res.status(500).json({ message: "Internal server error" });
   }
 };
@@ -147,7 +163,7 @@ export const approve_Student_Request_service = async (req, res) => {
     // ✅ تحقق من أن المستخدم Assistant
     const assistant = await Assistant.findOne({ user: _id });
     if (!assistant) {
-      return res.status(403).json({ message: "❌ Only assistants can approve students" });
+      return res.status(403).json({ message: " Only assistants can approve students" });
     }
 
     // ✅ تحقق من وجود الطالب
@@ -167,7 +183,7 @@ export const approve_Student_Request_service = async (req, res) => {
 
     return res.status(200).json({ message: "✅ Student approved successfully", student });
   } catch (error) {
-    console.error("❌ Error in approveStudentRequest:", error);
+    console.error(" Error in approveStudentRequest:", error);
     return res.status(500).json({ message: "Internal server error" });
   }
 };
@@ -183,7 +199,7 @@ export const get_assistant_Requests_service = async (req, res) => {
 
      const assistant = await Assistant.findOne({ user: assistantId})
       if (!assistant) {
-      return res.status(404).json({ message: "❌ assistant not found" });
+      return res.status(404).json({ message: " assistant not found" });
     }
 
     const filter = { assistant: assistant._id };
@@ -194,7 +210,7 @@ export const get_assistant_Requests_service = async (req, res) => {
 
     return res.status(200).json({ requests });
   } catch (error) {
-    console.error("❌ Error in getAssistantRequests  ==============>", error);
+    console.error(" Error in getAssistantRequests  ==============>", error);
     return res.status(500).json({ message: "Internal server error" });
   }
 };
@@ -205,31 +221,31 @@ export const request_video_extension_service = async (req, res) => {
     const { studentId, sessionId, reason } = req.body;
 
     if (!studentId || !sessionId || !reason) {
-      return res.status(400).json({ message: "❌ All fields are required" });
+      return res.status(400).json({ message: " All fields are required" });
     }
 
     // ✅ Check assistant
     const assistant = await Assistant.findOne({ user: assistantId });
     if (!assistant) {
-      return res.status(404).json({ message: "❌ Assistant not found" });
+      return res.status(404).json({ message: " Assistant not found" });
     }
 
     // ✅ Check student
     const student = await Student.findById(studentId);
     if (!student) {
-      return res.status(404).json({ message: "❌ Student not found" });
+      return res.status(404).json({ message: " Student not found" });
     }
 
     // ✅ Check session
     const session = await Session.findById(sessionId);
     if (!session) {
-      return res.status(404).json({ message: "❌ Session not found" });
+      return res.status(404).json({ message: " Session not found" });
     }
 
     // ✅ Check if student's grade & division match session's
     if (student.grade !== session.grade || student.division !== session.division) {
       return res.status(400).json({ 
-        message: "❌ Student's grade and division do not match the session" 
+        message: " Student's grade and division do not match the session" 
       });
     }
 
@@ -241,13 +257,13 @@ export const request_video_extension_service = async (req, res) => {
     );
 
     if (!sessionProgress) {
-      return res.status(400).json({ message: "❌ Student does not have this session in progress" });
+      return res.status(400).json({ message: " Student does not have this session in progress" });
     }
 
     const now = new Date();
     if (sessionProgress.expirationDate > now) {
       return res.status(400).json({ 
-        message: "❌ Video is still active, no need for extension", 
+        message: " Video is still active, no need for extension", 
         expirationDate: sessionProgress.expirationDate 
       });
     }
@@ -262,7 +278,7 @@ export const request_video_extension_service = async (req, res) => {
 
     if (existingRequest) {
       return res.status(400).json({ 
-        message: "❌ A pending request for this session already exists for this student" 
+        message: " A pending request for this session already exists for this student" 
       });
     }
 
@@ -282,7 +298,7 @@ export const request_video_extension_service = async (req, res) => {
     });
 
   } catch (error) {
-    console.error("❌ Error in requestVideoExtension ==============>", error);
+    console.error(" Error in requestVideoExtension ==============>", error);
     return res.status(500).json({ message: "Internal server error" });
   }
 };
@@ -293,31 +309,31 @@ export const request_free_session_service = async (req, res) => {
     const { studentId, sessionId, reason } = req.body;
 
     if (!studentId || !sessionId || !reason) {
-      return res.status(400).json({ message: "❌ All fields are required" });
+      return res.status(400).json({ message: " All fields are required" });
     }
 
     // ✅ Check assistant
     const assistant = await Assistant.findOne({ user: assistantId });
     if (!assistant) {
-      return res.status(404).json({ message: "❌ Assistant not found" });
+      return res.status(404).json({ message: " Assistant not found" });
     }
 
     // ✅ Check student
     const student = await Student.findById(studentId);
     if (!student) {
-      return res.status(404).json({ message: "❌ Student not found" });
+      return res.status(404).json({ message: " Student not found" });
     }
 
     // ✅ Check session
     const session = await Session.findById(sessionId);
     if (!session) {
-      return res.status(404).json({ message: "❌ Session not found" });
+      return res.status(404).json({ message: " Session not found" });
     }
 
     // ✅ Check if student's grade & division match session's
     if (student.grade !== session.grade || student.division !== session.division) {
       return res.status(400).json({ 
-        message: "❌ Student's grade and division do not match the session" 
+        message: " Student's grade and division do not match the session" 
       });
     }
 
@@ -326,7 +342,7 @@ export const request_free_session_service = async (req, res) => {
       (progress) => progress.session.toString() === sessionId
     );
     if (alreadyHasSession) {
-      return res.status(400).json({ message: "❌ Student already has this session" });
+      return res.status(400).json({ message: " Student already has this session" });
     }
 
     // ✅ Check if there is already a pending request for this student & session
@@ -339,7 +355,7 @@ export const request_free_session_service = async (req, res) => {
 
     if (existingRequest) {
       return res.status(400).json({ 
-        message: "❌ A pending request for this session already exists for this student" 
+        message: " A pending request for this session already exists for this student" 
       });
     }
 
@@ -359,7 +375,7 @@ export const request_free_session_service = async (req, res) => {
     });
 
   } catch (error) {
-    console.error("❌ Error in requestFreeSession  ==============>", error);
+    console.error(" Error in requestFreeSession  ==============>", error);
     return res.status(500).json({ message: "Internal server error" });
   }
 };
@@ -370,25 +386,25 @@ export const request_submission_override_service = async (req, res) => {
     const { studentId, sessionId, submissionId, reason } = req.body;
 
     if (!studentId || !submissionId || !sessionId || !reason) {
-      return res.status(400).json({ message: "❌ All fields are required" });
+      return res.status(400).json({ message: " All fields are required" });
     }
 
     // ✅ Check assistant
     const assistant = await Assistant.findOne({ user: assistantId });
     if (!assistant) {
-      return res.status(404).json({ message: "❌ Assistant not found" });
+      return res.status(404).json({ message: " Assistant not found" });
     }
 
     // ✅ Check student
     const student = await Student.findById(studentId);
     if (!student) {
-      return res.status(404).json({ message: "❌ Student not found" });
+      return res.status(404).json({ message: " Student not found" });
     }
 
     // ✅ Check session
     const session = await Session.findById(sessionId);
     if (!session) {
-      return res.status(404).json({ message: "❌ Session not found" });
+      return res.status(404).json({ message: " Session not found" });
     }
 
     // ✅ Check if student has this session in sessionProgress
@@ -397,7 +413,7 @@ export const request_submission_override_service = async (req, res) => {
     );
 
     if (!sessionProgress) {
-      return res.status(400).json({ message: "❌ Student does not have this session" });
+      return res.status(400).json({ message: " Student does not have this session" });
     }
 
     // ✅ Identify submission type
@@ -411,7 +427,7 @@ export const request_submission_override_service = async (req, res) => {
     }
 
     if (!submissionType) {
-      return res.status(400).json({ message: "❌ Submission does not belong to this student or session or there is no submission for this session " });
+      return res.status(400).json({ message: " Submission does not belong to this student or session or there is no submission for this session " });
     }
 
     // ✅ Check if there is already a pending request for this submission
@@ -423,7 +439,7 @@ export const request_submission_override_service = async (req, res) => {
     });
 
     if (existingRequest) {
-      return res.status(400).json({ message: "❌ A pending request for this submission already exists" });
+      return res.status(400).json({ message: " A pending request for this submission already exists" });
     }
 
     // ✅ Create the request with submission type in reason
@@ -442,7 +458,7 @@ export const request_submission_override_service = async (req, res) => {
     });
 
   } catch (error) {
-    console.error("❌ Error in requestSubmissionOverride ==============>", error);
+    console.error(" Error in requestSubmissionOverride ==============>", error);
     return res.status(500).json({ message: "Internal server error" });
   }
 };
@@ -450,46 +466,178 @@ export const request_submission_override_service = async (req, res) => {
 
 
 
+// ==================== assistant correction
 
 
+export const correct_exam_submission_service = async (req, res) => {
+  try {
+    const { submissionId } = req.query;
+    const { _id: assistantUserId } = req.login_user;
+    const { corrections } = req.body;
+
+    // ✅ نلاقي الأسيستنت
+    const assistant = await Assistant.findOne({ user: assistantUserId });
+    if (!assistant) {
+      return res.status(404).json({ message: "❌ Assistant not found" });
+    }
+
+    // ✅ نلاقي السبميشن
+    const submission = await Submission.findById(submissionId);
+    if (!submission) {
+      return res.status(404).json({ message: "❌ Submission not found" });
+    }
+
+    // ✅ لازم يكون امتحان
+    if (![SUBMISSION_TYPE.EXAM, SUBMISSION_TYPE.MONTHLY_EXAM].includes(submission.submissionType)) {
+      return res.status(400).json({ message: "❌ This submission is not for an exam" });
+    }
+
+    if (submission.isCorrected) {
+      return res.status(400).json({ message: "❌ This submission is already corrected" });
+    }
+
+    // ================== Variables ==================
+    let totalScore = 0;
+    let examTotalGrade = 0;
+    let examTotalPoints = 0;
+    let studentPoints = 0;
+
+    // ================== Helper ==================
+    function applyCorrection(q, correction) {
+      if (!correction) return;
+
+      // ✅ لازم يحدد IsCorrect
+      if (typeof correction.isCorrect !== "boolean") {
+        throw new Error("❌ كل الأسئلة لازم يكون فيها isCorrect");
+      }
+      q.isCorrect = correction.isCorrect;
+
+      // ✅ لو الأسستنت بعت درجة جديدة
+      if (typeof correction.grade === "number") {
+        q.gradeAfter = Math.min(correction.grade, q.maxGrade || q.grade || 1);
+      }
+
+      // ✅ ملاحظات
+      if (correction.assistantNotes !== undefined) {
+        q.assistantNotes = correction.assistantNotes;
+      }
+    }
+
+    // ================== Question Bank ==================
+    for (const group of submission.studentResult.answers.questionBank || []) {
+      for (const q of group.questions) {
+        const correction = corrections?.questionBank?.find(c => String(c.questionId) === String(q.questionId));
+        applyCorrection(q, correction);
+
+        if (typeof q.isCorrect !== "boolean") {
+          return res.status(400).json({ message: "❌ لازم تخلص تصحيح كل الأسئلة (Question Bank)" });
+        }
+
+        const finalGrade = q.gradeAfter ?? q.grade ?? 0;
+        const maxGrade = q.maxGrade || q.grade || 1;
+
+        examTotalGrade += maxGrade;
+        examTotalPoints += (q.point || 1);
+
+        if (finalGrade > 0) {
+          totalScore += finalGrade;
+          studentPoints += (q.point || 1);
+        }
+      }
+    }
+
+    // ================== Multiple Choice ==================
+    for (const q of submission.studentResult.answers.multipleChoices || []) {
+      const correction = corrections?.multipleChoices?.find(c => String(c.questionId) === String(q.questionId));
+      applyCorrection(q, correction);
+
+      if (typeof q.isCorrect !== "boolean") {
+        return res.status(400).json({ message: "❌ لازم تخلص تصحيح كل الأسئلة (Multiple Choice)" });
+      }
+
+      const finalGrade = q.gradeAfter ?? q.grade ?? 0;
+      const maxGrade = q.maxGrade || q.grade || 1;
+
+      examTotalGrade += maxGrade;
+      examTotalPoints += (q.point || 1);
+
+      if (finalGrade > 0) {
+        totalScore += finalGrade;
+        studentPoints += (q.point || 1);
+      }
+    }
+
+// ================== Essay ==================
+for (const q of submission.studentResult.answers.essay || []) {
+  const correction = corrections?.essay?.find(c => String(c.questionId) === String(q.questionId));
+
+  if (!correction || typeof correction.gradeAfter !== "number") {
+    return res.status(400).json({
+      message: `❌ لازم تبعت gradeAfter لكل سؤال Essay (questionId: ${q.questionId})`
+    });
+  }
+
+  applyCorrection(q, correction);
+
+  const maxGrade = q.maxGrade || q.grade || 1;
+  const finalGrade = q.gradeAfter ?? 0;
+
+  examTotalGrade += maxGrade;
+  examTotalPoints += (q.point || 1);
+
+  // ✅ شرط النصف
+  if (finalGrade >= maxGrade / 2) {
+    totalScore += finalGrade;
+    studentPoints += (q.point || 1);
+    q.isCorrect = true;
+  } else {
+    q.isCorrect = false;
+  }
+}
 
 
+    // ================== Final Score ==================
+    const percentage = examTotalGrade > 0
+      ? Math.round((totalScore / examTotalGrade) * 100 * 100) / 100
+      : 0;
 
+    const passed = percentage >= (submission.studentResult.passingScore || 50);
+
+    // ✅ Update submission result
+    submission.studentResult.studentGrade = totalScore;
+    submission.studentResult.studentPoints = studentPoints;
+    submission.studentResult.totalGrade = examTotalGrade;
+    submission.studentResult.totalPoints = examTotalPoints;
+    submission.studentResult.percentage = percentage;
+    submission.studentResult.passed = passed;
+
+    submission.isCorrected = true;
+    submission.correctedBy = assistant._id;
+
+    await submission.save();
+
+    return res.status(200).json({
+      message: "✅ Submission corrected successfully",
+      submission
+    });
+
+  } catch (error) {
+    console.error("❌ Error in correct_exam_submission_service:", error);
+    if (error.message.includes("isCorrect")) {
+      return res.status(400).json({ message: error.message });
+    }
+    return res.status(500).json({ message: "Internal server error" });
+  }
+};
 
 
 
 
 // ================================ assistant and supervisor flow  =================== > for abduo
 
-export const correct_submission_service = async (req, res) => {
-  try {
-    const { submissionId } = req.params;
-    const { grade, assistantNotes } = req.body;
-    const { _id: assistantId } = req.login_user;
 
-     const assistant = await Assistant.findOne({ user: assistantId})
-      if (!assistant) {
-      return res.status(404).json({ message: "❌ assistant not found" });
-    }
 
-    const submission = await Submission.findById(submissionId);
-    if (!submission) {
-      return res.status(404).json({ message: "❌ Submission not found" });
-    }
 
-    submission.grade = grade;
-    submission.assistantNotes = assistantNotes;
-    submission.isCorrected = true;
-    submission.correctedBy = assistant._id;
-
-    await submission.save();
-
-    return res.status(200).json({ message: "✅ Submission corrected", submission });
-  } catch (error) {
-    console.error("❌ Error in correct_submission_service ==============>", error);
-    return res.status(500).json({ message: "Internal server error" });
-  }
-};
 export const send_correction_to_supervisor_service = async (req, res) => {
   try {
     const { assistantId } = req.params;
