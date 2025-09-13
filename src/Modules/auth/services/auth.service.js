@@ -16,49 +16,61 @@ import Admin from "../../../DB/Models/admin.model.js";
 /**
  * Create new admin account ( and this is just for one time )
  */
+
 export const create_admin_service = async (req, res) => {
   try {
-    const { userId } = req.body;
+    const {
+      name,
+      email,
+      password,
+      rePassword,
+      phoneNumber,
+    } = req.body;
 
-    // ✅ 1) تحقق هل يوجد Admin واحد بالفعل؟
+        // ✅ 1) تحقق هل يوجد Admin بالفعل؟
     const existingAdminsCount = await Admin.countDocuments();
     if (existingAdminsCount > 0) {
       return res.status(400).json({
-        message: " There is already an Admin account. You cannot create another one.",
+        message: "❌ There is already an Admin account. You cannot create another one.",
       });
     }
-
-    // ✅ 2) تحقق من وجود المستخدم
-    const user = await User.findById(userId);
-    if (!user) {
-      return res.status(404).json({ message: " User not found" });
+    // ✅ 1) تحقق من كلمة السر
+    if (password !== rePassword) {
+      return res.status(409).json({ message: "Password must match RePassword" });
     }
 
-    // ✅ 3) تحقق من أن هذا المستخدم ليس مرتبطًا مسبقًا كـ Admin
-    const existingAdmin = await Admin.findOne({ user: userId });
-    if (existingAdmin) {
-      return res.status(400).json({ message: " This user is already an Admin" });
+    // ✅ 2) تحقق إن الايميل مش مستخدم قبل كده
+    const existingUser = await User.findOne({ email });
+    if (existingUser) {
+      return res.status(400).json({ message: "Email already registered" });
     }
 
+    // ✅ 3) إنشاء الـ User
+    const hashedPassword = hashSync(password, +process.env.PASSWORD_SALT);
+    const newUser = await User.create({
+      name,
+      email,
+      password: hashedPassword,
+      role: system_role.ADMIN, // تعيين الـ role مباشر كـ Admin
+      phoneNumber: await encryption({
+        value: phoneNumber,
+        secret_key: process.env.PHONE_ENCRYPTION_SECRET,
+      }),
+    });
 
-    // remake the admin
-    user.role = system_role.ADMIN 
-    await user.save()
-
-    // ✅ 4) إنشاء الـ Admin
-    const newAdmin = new Admin({ user: userId });
-    await newAdmin.save();
+    // ✅ 4) إنشاء الـ Admin المرتبط بالـ User
+    const newAdmin = await Admin.create({ user: newUser._id });
 
     return res.status(201).json({
       message: "✅ Admin created successfully",
+      user: newUser,
       admin: newAdmin,
     });
   } catch (error) {
-    console.error(" Error in create_admin_service:", error);
+    console.error("Error in create_admin_service:", error);
     return res.status(500).json({ message: "Internal server error" });
   }
 };
-
 
 //================================== normal users
 

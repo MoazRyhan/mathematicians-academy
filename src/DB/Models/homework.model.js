@@ -41,6 +41,7 @@ const homeworkSchema = new mongoose.Schema({
   ],
 
     // ✅ the new things
+  passingScore: { type: Number, default: 50 },
   totalQuestions: { type: Number, default: 0 },
   totalPoints: { type: Number, default: 0 },
   totalGrade: { type: Number, default: 0 },

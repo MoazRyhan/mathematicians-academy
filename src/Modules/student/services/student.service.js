@@ -642,6 +642,7 @@ export const get_payment_history_service = async (req, res) => {
 
 
 
+
 // ======================= submit
 export const submit_Homework_Solution_service = async (req, res) => {
   try {
@@ -670,7 +671,7 @@ export const submit_Homework_Solution_service = async (req, res) => {
     }
 
     // if he send it before
-    const existingProgress = student.sessionProgress.find(
+    const existingProgress = student?.sessionProgress?.find(
       sp => sp.session.toString() === sessionId && sp.isHomeworkSubmitted === true
     );
 
@@ -678,10 +679,12 @@ export const submit_Homework_Solution_service = async (req, res) => {
       return res.status(400).json({ message: " You have already submitted this homework" });
     }
 
+
+    // ================= Upload PDF =================
     const folderPath = `${process.env.FOLDER_NAME_CLOUDINARY}/User/Submissions/Homework/${sessionExist?.homework?.title}/${student?._id}`;
     const uploadResult = await cloudinary().uploader.upload(req.file.path, {
       folder: folderPath,
-      resource_type: "raw",
+      resource_type: "auto",
       format: "pdf"
     });
 
@@ -689,21 +692,62 @@ export const submit_Homework_Solution_service = async (req, res) => {
       return res.status(500).json({ message: " Failed to upload file to Cloudinary" });
     }
 
+    // ================= Prepare studentResultHS =================
+    let totalPoints = 0;
+    let totalGrade = 0;
+
+    const preparedQuestions = sessionExist.homework.questions.map(q => {
+      totalPoints += q.points || 0;
+      totalGrade += q.grade || 0;
+
+      return {
+        questionId: q._id,
+        questionText: q.questionText,
+        type:q.type ,
+        options: q.options || [],
+        studentAnswer: null, // ✅ لسه الطالب ماجاوبش، الأسستنت هيصحح بعدين
+        correctAnswer: q.correctAnswer || null,
+        isCorrect: false,
+        didSomeThingWrong: false,
+        point: 0,
+        grade: q.grade,
+        gradeAfter: null,
+        assistantNotes: null,
+        supervisorComment: null
+      };
+    });
+
     const newSubmission = await Submission.create({
       student: student._id,
       session: sessionExist._id,
       submissionType: SUBMISSION_TYPE.HOMEWORK,
       pdfSolution: {
-         files : { public_id: uploadResult.public_id,
-        secure_url: uploadResult.secure_url },
+        files: {
+          public_id: uploadResult.public_id,
+          secure_url: uploadResult.secure_url
+        },
         folderId: folderPath
       },
       homework: sessionExist.homework._id,
-      deadline: sessionExist.homework?.deadline ,
-      submissionTime: Date.now()
+      deadline: sessionExist.homework?.deadline,
+      submissionTime: Date.now(),
+
+      // ✅ ضيف studentResultHS
+      studentResultHS: {
+        totalGrade: totalGrade,
+        totalPoints: totalPoints,
+        passingScore: sessionExist.homework?.passingScore || 50, // لو عندك passingScore جوه homework
+        studentGrade: 0,
+        studentPoints: 0,
+        percentage: 0,
+        passed: false,
+        answers: {
+          questions: preparedQuestions
+        }
+      }
     });
 
-    //  updata sessionProgress in Student
+    // ================= Update student session progress =================
     const sessionProgressIndex = student.sessionProgress.findIndex(
       sp => sp.session.toString() === sessionId
     );
@@ -780,11 +824,11 @@ export const upload_Section_Material_service = async (req, res) => {
     if (existingProgress) {
       return res.status(400).json({ message: " You have already submitted this section" });
     }
-
+  // ================= Upload PDF =================
     const folderPath = `${process.env.FOLDER_NAME_CLOUDINARY}/User/Submissions/Section/${sessionExist?.section?.title}/${student?._id}`;
     const uploadResult = await cloudinary().uploader.upload(req.file.path, {
       folder: folderPath,
-      resource_type: "raw",
+      resource_type: "auto",
       format: "pdf"
     });
 
@@ -792,22 +836,62 @@ export const upload_Section_Material_service = async (req, res) => {
       return res.status(500).json({ message: " Failed to upload file to Cloudinary" });
     }
 
+    // ================= Prepare studentResultHS =================
+    let totalPoints = 0;
+    let totalGrade = 0;
+
+    const preparedQuestions = sessionExist.section.questions.map(q => {
+      totalPoints += q.points || 0;
+      totalGrade += q.grade || 0;
+
+      return {
+        questionId: q._id,
+        questionText: q.questionText,
+        type : q.type ,
+        options: q.options || [],
+        studentAnswer: null,
+        correctAnswer: q.correctAnswer || null,
+        isCorrect: false,
+        didSomeThingWrong: false,
+        point: 0,
+        grade: q.grade,
+        gradeAfter: null,
+        assistantNotes: null,
+        supervisorComment: null
+      };
+    });
 
     const newSubmission = await Submission.create({
       student: student._id,
       session: sessionExist._id,
       submissionType: SUBMISSION_TYPE.SECTION,
       pdfSolution: {
-        files :{ public_id: uploadResult.public_id,
-        secure_url: uploadResult.secure_url },
+        files: {
+          public_id: uploadResult.public_id,
+          secure_url: uploadResult.secure_url
+        },
         folderId: folderPath
       },
       section: sessionExist.section._id,
       deadline: sessionExist.section?.deadline,
-      submissionTime : Date.now()
+      submissionTime: Date.now(),
+
+      // ✅ ضيف studentResultHS
+      studentResultHS: {
+        totalGrade: totalGrade,
+        totalPoints: totalPoints,
+        passingScore: sessionExist.section?.passingScore || 50,
+        studentGrade: 0,
+        studentPoints: 0,
+        percentage: 0,
+        passed: false,
+        answers: {
+          questions: preparedQuestions
+        }
+      }
     });
 
-    //  تحديث sessionProgress في Student
+    // ================= Update session progress =================
     const sessionProgressIndex = student.sessionProgress.findIndex(
       sp => sp.session.toString() === sessionId
     );
@@ -831,7 +915,6 @@ export const upload_Section_Material_service = async (req, res) => {
       return res.status(400).json({ message: " This section not exist" });
     }
 
-    console.log(newSubmission._id );
     
    await Section.updateOne(
     { _id: sessionExist.section },
@@ -1045,6 +1128,34 @@ export const submit_Exam_Solution_service = async (req, res) => {
       return res.status(400).json({ message: " Exam not found" });
     }
 
+
+    // if session exam
+    if (examExist.examType == EXAM_TYPE.SESSION ) {
+
+    const existingProgress = student?.sessionProgress?.find(
+      sp => sp.session.toString() === examExist.relatedSession && sp.isExamSubmitted === true
+    );
+
+    if (existingProgress) {
+      return res.status(400).json({ message: " You have already submitted this exam" });
+    }
+
+    }
+
+    // if monthly exam
+    if(examExist.examType === EXAM_TYPE.MONTHLY) {
+  const alreadySubmitted = await Submission.findOne({
+    student: student._id,
+    exam: examExist._id
+  });
+
+  if(alreadySubmitted) {
+    return res.status(400).json({ message: "You have already submitted this monthly exam" });
+  }
+}
+
+
+
     // ================== Validate Answers IDs ==================
     const validQuestionIds = new Set();
 
@@ -1178,7 +1289,7 @@ export const submit_Exam_Solution_service = async (req, res) => {
     const folderPath = `${process.env.FOLDER_NAME_CLOUDINARY}/User/Submissions/Exams/${examExist.title}/${student?._id}`;
     const uploadResult = await cloudinary().uploader.upload(req.file.path, {
       folder: folderPath,
-      resource_type: "raw",
+      resource_type: "auto",
       format: "pdf"
     });
 
@@ -1263,10 +1374,10 @@ export const get_exams_service = async (req, res) => {
     }).lean();
 
     const filteredExams = exams
-      // .filter(exam =>
-      //   exam?.grade == student.grade &&
-      //   exam?.division == student.division
-      // )
+      .filter(exam =>
+        exam?.grade == student.grade &&
+        exam?.division == student.division
+      )
       .map(exam => {
         const randomizedExam = { ...exam };
 

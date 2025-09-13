@@ -46,17 +46,7 @@ const adminSchema = new mongoose.Schema(
         openedAt: { type: Date, default: Date.now },
         reason: { type: String },
       },
-    ],
-
-    // Manual/QR attendance records
-    manualAttendance: [
-      {
-        student: { type: mongoose.Schema.Types.ObjectId, ref: "Student" },
-        session: { type: mongoose.Schema.Types.ObjectId, ref: "Session" },
-        attendedAt: { type: Date, default: Date.now },
-        method: { type: String, enum: Object.values(ATTENDANCE_TYPE) , default: ATTENDANCE_TYPE.QR  },
-      },
-    ],
+    ]
   },
   { timestamps: true }
 );

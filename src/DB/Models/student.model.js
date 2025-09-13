@@ -1,5 +1,5 @@
 import mongoose from "mongoose";
-import { STUDENT_ENUMS } from "../../Constants/constants.js";
+import { ATTENDANCE_TYPE, STUDENT_ENUMS } from "../../Constants/constants.js";
 
 const studentSchema = new mongoose.Schema({
 
@@ -95,7 +95,10 @@ sessionProgress: [{
 
   isQuizSubmitted: { type: Boolean, default: false }, // this for video quiz
 
+  // for the attendance 
   attendanceRegistered: { type: Boolean, default: false },
+  attendedAt: { type: Date, default: Date.now },
+  method: { type: String, enum: Object.values(ATTENDANCE_TYPE) , default: ATTENDANCE_TYPE.QR  },
 }],
 
 

@@ -37,9 +37,11 @@ supervisor_controller.post("/handle_submission_override",    error_handler_middl
 
 // review corrections 
 supervisor_controller.get("/get_correction_requests", error_handler_middleware( supervisor_services.get_Correction_Requests_service));
-supervisor_controller.put("/correction-requests/:requestId", error_handler_middleware( supervisor_services.review_Correction_Request_service));
+supervisor_controller.put("/correction_exam_requests/:requestId", error_handler_middleware( supervisor_services.review_exam_Correction_Request_service));
 
 
+// review the section / homework  corrections 
+supervisor_controller.put("/correction_HomeworkOrSection_requests/:requestId", error_handler_middleware( supervisor_services.review_homework_section_Correction_Request_service));
 
 
 

@@ -485,7 +485,8 @@ export const add_Homework_ToSession_service = async (req, res) => {
       expectedMCQCount,
       expectedEssayCount,
       totalGrade,
-      expectedPoints
+      expectedPoints,
+      passingScore 
     } = req.body;
 
 
@@ -616,7 +617,8 @@ export const add_Homework_ToSession_service = async (req, res) => {
       totalPoints,
       totalGrade,
       countEssayQuestions,
-      countMCQQuestions
+      countMCQQuestions,
+      passingScore
     });
 
     await newHomework.save();
@@ -644,7 +646,8 @@ export const update_Homework_service = async (req, res) => {
       expectedMCQCount,
       expectedEssayCount,
       totalGrade,
-      expectedPoints
+      expectedPoints,
+      passingScore
     } = req.body;
 
     // ✅ Get homework
@@ -671,6 +674,7 @@ export const update_Homework_service = async (req, res) => {
     // ✅ Prepare updates
     let updates = {};
     if (title && title !== homework.title) updates.title = title;
+    if (passingScore && passingScore !== homework.passingScore) updates.passingScore = passingScore;
     if (description && description !== homework.description) updates.description = description;
     if (availableFrom && new Date(availableFrom).toISOString() !== homework.availableFrom.toISOString()) updates.availableFrom = availableFrom;
     if (deadline && new Date(deadline).toISOString() !== homework.deadline.toISOString()) updates.deadline = deadline;
@@ -837,7 +841,8 @@ export const add_Section_ToSession_service = async (req, res) => {
       expectedMCQCount,
       expectedEssayCount,
       totalGrade,
-      expectedPoints
+      expectedPoints ,
+      passingScore
     } = req.body;
     
     
@@ -972,7 +977,8 @@ export const add_Section_ToSession_service = async (req, res) => {
       totalPoints,
       totalGrade,
       countEssayQuestions,
-      countMCQQuestions
+      countMCQQuestions ,
+      passingScore
     });
 
     await newSection.save();
@@ -1001,7 +1007,8 @@ export const update_Section_service = async (req, res) => {
       expectedMCQCount,
       expectedEssayCount,
       totalGrade,
-      expectedPoints
+      expectedPoints ,
+      passingScore
     } = req.body;
 
     // ✅ Get section
@@ -1028,6 +1035,7 @@ export const update_Section_service = async (req, res) => {
     // ✅ Prepare updates
     let updates = {};
     if (title && title !== section.title) updates.title = title;
+    if (passingScore && passingScore !== section.passingScore) updates.passingScore = passingScore;
     if (description && description !== section.description) updates.description = description;
     if (availableFrom && new Date(availableFrom).toISOString() !== section.availableFrom.toISOString()) updates.availableFrom = availableFrom;
     if (deadline && new Date(deadline).toISOString() !== section.deadline.toISOString()) updates.deadline = deadline;
@@ -1409,7 +1417,8 @@ export const add_exam_service = async (req, res) => {
   }
 };
 
-//==================== still under testing ==================
+
+//==================== still under testing ================== don't use it abdu
 export const update_exam_service = async (req, res) => {
   try {
     const { examId } = req.params;
@@ -1671,7 +1680,7 @@ export const delete_exam_service = async (req, res) => {
 
 
 
-// ✅ ====================3. 👨‍🏫 Teacher  / admin ==> videoQuiz 
+// ✅ ====================3. 👨‍🏫 Teacher  / admin ==> videoQuiz    (  //still under testing  don't use this 3 apis it abdu  )
 export const add_video_Quiz_ToSession_service = async (req, res) => {
   try {
     const { sessionId } = req.params;

@@ -29,14 +29,14 @@ assistant_controller.post("/request/free_session",error_handler_middleware( assi
 assistant_controller.post("/request/submission_override",error_handler_middleware( assistant_services.request_submission_override_service));
 
 
-// correct the submissions
-assistant_controller.put("/correct_exam_submission" ,error_handler_middleware( assistant_services.correct_exam_submission_service)); // 2apis
-assistant_controller.put("/correct_Homework&Section_submission" ,error_handler_middleware( assistant_services.correct_exam_submission_service)); // 2apis
+// correct the exam submissions
+assistant_controller.put("/correct_exam_submission" ,error_handler_middleware( assistant_services.correct_exam_submission_service)); 
+assistant_controller.put("/re_correct_exam_submission" ,error_handler_middleware( assistant_services.re_correct_exam_submission_service)); 
 
 
-
-
-assistant_controller.post("correct_to_supervisor/:assistantId", error_handler_middleware ( assistant_services.send_correction_to_supervisor_service));
+// correct the section / homework submissions
+assistant_controller.put("/correct_HomeworkOrSection_submission" ,error_handler_middleware( assistant_services.correct_homework_section_submission_service)); 
+assistant_controller.put("/re_correct_HomeworkOrSection_submission" ,error_handler_middleware( assistant_services.re_correct_homework_section_submission_service)); 
 
 
 

@@ -1,7 +1,5 @@
+import rateLimit from "express-rate-limit";
 import { STUDENT_ENUMS } from "../Constants/constants.js";
-import Exam from "../DB/Models/exam.model.js";
-import Homework from "../DB/Models/homework.model.js";
-import Section from "../DB/Models/section.model.js";
 import Student from "../DB/Models/student.model.js";
 
 // Helper function: Generate sequential unique student code
@@ -66,3 +64,13 @@ export const shuffleArray = (array) => {
 };
 
 
+
+
+// // to limit much req
+export const auth_rate_limit =  rateLimit({
+      windowMs : 5 * 60 * 1000 , // 5 minutes
+      limit : 10 ,
+      message : " Too many requests from this IP, please try again later." ,
+      legacyHeaders : false
+  })
+  
