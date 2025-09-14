@@ -789,8 +789,6 @@ export const admin_Reset_Password_service = async (req, res) => {
 
 //===========================================list the  / assistant / supervisor / accountant /  students 
 
-
-
 export const list_Assistants_service = async (req, res) => {
   try {
     const { _id } = req.login_user;
@@ -896,15 +894,7 @@ export const list_Students_service = async (req, res) => {
 
 
 
-
-// any thing below is under testing
-//===============================
-
-
-
-
-
-
+// add assistant to super
 export const assign_Assistant_To_Supervisor_service = async (req, res) => {
   try {
     const { supervisorId, assistantId } = req.body;
@@ -940,6 +930,11 @@ export const assign_Assistant_To_Supervisor_service = async (req, res) => {
     return res.status(500).json({ message: "Internal server error" });
   }
 };
+
+
+
+
+
 
 
 export const update_group_members_service = async (req, res) => {

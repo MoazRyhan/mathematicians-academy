@@ -26,7 +26,6 @@ export const get_assistant_data_service = async (req, res) => {
       .populate({ path: "supervisor", select: "user" })
       .populate({ path: "students", select: "fullName grade" })
       .populate({ path: "groups", select: "name" })
-      .populate({ path: "correctionRequests", select: "status createdAt" })
       .populate({ path: "assistantRequest", select: "status createdAt" });
 
     if (!assistant) {
@@ -66,7 +65,8 @@ export const get_assistant_students_service = async (req, res) => {
 
     const assistant = await Assistant.findOne({ user: assistantId})
       .populate("students", "fullName user")
-      .populate("groups", "name students");
+      .populate("groups", "name students")
+      .populate("supervisor")
 
     if (!assistant) {
       return res.status(404).json({ message: " Assistant not found" });
@@ -1056,6 +1056,7 @@ export const re_correct_homework_section_submission_service = async (req, res) =
     return res.status(500).json({ message: error.message || "Internal server error" });
   }
 };
+
 
 
 

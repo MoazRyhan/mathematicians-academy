@@ -385,7 +385,7 @@ if (paymentMethod === PAYMENT_TYPE.VODAFONE_CASH) {
   }
 
   //  رفع الصورة على Cloudinary
-  const folderPath = `${process.env.FOLDER_NAME_CLOUDINARY}/User/vodafoneCashImage/${student._id}`;
+  const folderPath = `${process.env.FOLDER_NAME_CLOUDINARY}/User/vodafoneCashImage/${student?.fullName}`;
   let uploadResult;
   try {
     uploadResult = await cloudinary().uploader.upload(files[0].path, {
@@ -481,25 +481,25 @@ export const open_session_video_service = async (req, res) => {
     const { _id: userId } = req.login_user;
     const { sessionId } = req.params;
 
-    // ✅ جلب الطالب
+    //  جلب الطالب
     const student = await Student.findOne({ user: userId });
     if (!student) {
       return res.status(404).json({ message: " Student not found" });
     }
 
-    // ✅ جلب السيشن
+    //  جلب السيشن
     const session = await Session.findById(sessionId)
       .populate("prerequisites homework section exam studentResults.student");
     if (!session) {
       return res.status(404).json({ message: " Session not found" });
     }
 
-    // ✅ التحقق من grade و division
+    //  التحقق من grade و division
     if (student.division !== session.division || student.grade !== session.grade) {
       return res.status(403).json({ message: " You are not allowed to watch this session" });
     }
 
-// ✅ لو السيشن موجودة بالفعل عند الطالب في sessionProgress
+//  لو السيشن موجودة بالفعل عند الطالب في sessionProgress
 const existingProgress = student.sessionProgress.find(
   sp => sp.session.toString() === sessionId
 );
@@ -525,7 +525,7 @@ if (existingProgress) {
     });
   }
 
-  // ✅ لو لسه شغالة
+  //  لو لسه شغالة
   return res.status(200).json({
     message: "Session already unlocked and active",
     expiresAt: existingProgress.expirationDate
@@ -546,7 +546,7 @@ if (existingProgress) {
 }
 
 
-    // ✅ التحقق من الـ prerequisites
+    //  التحقق من الـ prerequisites
     if (session.prerequisites && session.prerequisites.length > 0) {
       const missingPrereqSessions = session.prerequisites.filter(prereq => {
         const prereqId = prereq._id ? prereq._id.toString() : prereq.toString();
@@ -579,15 +579,15 @@ if (existingProgress) {
       }
     }
 
-    // ✅ لو السيشن مش موجودة عنده خالص
+    //  لو السيشن مش موجودة عنده خالص
     if (student.sessionCredits <= 0) {
       return res.status(400).json({ message: " You don't have enough session credits" });
     }
 
-    // ✅ خصم كريدت واحد
+    //  خصم كريدت واحد
     student.sessionCredits -= 1;
 
-    // ✅ إضافة السيشن في sessionProgress مع تاريخ انتهاء بعد 7 أيام
+    //  إضافة السيشن في sessionProgress مع تاريخ انتهاء بعد 7 أيام
     const expirationDate = new Date();
     expirationDate.setDate(expirationDate.getDate() + 7);
 
@@ -707,7 +707,7 @@ export const submit_Homework_Solution_service = async (req, res) => {
         questionText: q.questionText,
         type:q.type ,
         options: q.options || [],
-        studentAnswer: null, // ✅ لسه الطالب ماجاوبش، الأسستنت هيصحح بعدين
+        studentAnswer: null, //  لسه الطالب ماجاوبش، الأسستنت هيصحح بعدين
         correctAnswer: q.correctAnswer || null,
         isCorrect: false,
         didSomeThingWrong: false,
@@ -734,7 +734,7 @@ export const submit_Homework_Solution_service = async (req, res) => {
       deadline: sessionExist.homework?.deadline,
       submissionTime: Date.now(),
 
-      // ✅ ضيف studentResultHS
+      //  ضيف studentResultHS
       studentResultHS: {
         totalGrade: totalGrade,
         totalPoints: totalPoints,
@@ -879,7 +879,7 @@ export const upload_Section_Material_service = async (req, res) => {
       deadline: sessionExist.section?.deadline,
       submissionTime: Date.now(),
 
-      // ✅ ضيف studentResultHS
+      //  ضيف studentResultHS
       studentResultHS: {
         totalGrade: totalGrade,
         totalPoints: totalPoints,
@@ -946,18 +946,18 @@ export const submit_VideoQuiz_Answers_service = async (req, res) => {
       return res.status(400).json({ message: "Responses must be provided as an array" });
     }
 
-    // ✅ جلب الطالب
+    //  جلب الطالب
     const student = await Student.findOne({ user: userId });
     if (!student) return res.status(404).json({ message: "Student not found" });
 
-    // ✅ جلب السيشن
+    //  جلب السيشن
     const session = await Session.findById(sessionId);
     if (!session) return res.status(404).json({ message: "Session not found" });
     if (!session.segments || session.segments.length === 0) {
       return res.status(400).json({ message: "This session has no segments" });
     }
 
-    // ✅ جلب السيجمنت المطلوب
+    //  جلب السيجمنت المطلوب
     const segment = session.segments.find(s => String(s._id) === String(segmentId));
     if (!segment) {
       return res.status(400).json({ message: `Invalid segmentId: ${segmentId}` });
@@ -969,7 +969,7 @@ export const submit_VideoQuiz_Answers_service = async (req, res) => {
       return res.status(400).json({ message: "You have already submitted this quiz" });
     }
 
-    // ✅ حساب نتيجة السيجمنت
+    //  حساب نتيجة السيجمنت
     let segScore = 0;
     for (const q of segment.questions || []) {
       const qIdStr = String(q._id);
@@ -985,7 +985,7 @@ export const submit_VideoQuiz_Answers_service = async (req, res) => {
 
     const segPassed = segScore >= segPassingScore;
 
-    // ✅ تحديث session.studentResults (جزئي أو كامل)
+    //  تحديث session.studentResults (جزئي أو كامل)
     const existingResultIndex = session.studentResults.findIndex(r => String(r.student) === String(student._id));
     if (existingResultIndex > -1) {
       const prevResult = session.studentResults[existingResultIndex];
@@ -1021,7 +1021,7 @@ export const submit_VideoQuiz_Answers_service = async (req, res) => {
     }
     await session.save();
 
-    // ✅ تحديث progress بالـ endTime للسيجمنت الحالي لو نجح
+    //  تحديث progress بالـ endTime للسيجمنت الحالي لو نجح
     if (segPassed) {
       if (progressIndex > -1) {
         student.sessionProgress[progressIndex].watchedVideoProgress = segment.endTime;
@@ -1034,7 +1034,7 @@ export const submit_VideoQuiz_Answers_service = async (req, res) => {
       await student.save();
     }
 
-    // ✅ الرد لو فشل
+    //  الرد لو فشل
     if (!segPassed) {
       return res.status(200).json({
         message: `You did not pass segment "${segment.title}". Please rewatch and retry.`,
@@ -1044,7 +1044,7 @@ export const submit_VideoQuiz_Answers_service = async (req, res) => {
       });
     }
 
-    // ✅ لو ده آخر Segment والطالب نجح في الكل → ندي Points
+    //  لو ده آخر Segment والطالب نجح في الكل → ندي Points
     const isLastSegment = String(session.segments[session.segments.length - 1]._id) === String(segmentId);
     if (isLastSegment) {
       student.redeemablePoints = (student.redeemablePoints) + (session.videoWatchPoints);
@@ -1074,7 +1074,7 @@ export const submit_VideoQuiz_Answers_service = async (req, res) => {
     student.sessionProgress.push({
       watchedVideoProgress: segment.endTime
     });
-    // ✅ الرد لو ده مش آخر Segment
+    //  الرد لو ده مش آخر Segment
     return res.status(200).json({
       message: `Segment "${segment.title}" passed successfully. You can proceed to the next segment.`,
       segmentId,
@@ -1312,12 +1312,12 @@ export const submit_Exam_Solution_service = async (req, res) => {
       deadline: examExist.deadline || Date.now() ,
       submissionTime: Date.now(),
       studentResult : {
-        totalGrade: examTotalGrade,  // ✅ مجموع الدرجات في الامتحان
-        totalPoints: examTotalPoints, // ✅ مجموع النقاط
+        totalGrade: examTotalGrade,  //  مجموع الدرجات في الامتحان
+        totalPoints: examTotalPoints, //  مجموع النقاط
         passingScore : examExist.passingScore ,
 
-        studentGrade :  totalScore,        // ✅ درجات الطالب (Grade)
-        studentPoints :  studentPoints,        // ✅ بوينتس الطالب (points)
+        studentGrade :  totalScore,        //  درجات الطالب (Grade)
+        studentPoints :  studentPoints,        //  بوينتس الطالب (points)
         percentage,
         passed,
         answers: studentAnswers
@@ -1371,7 +1371,7 @@ export const get_exams_service = async (req, res) => {
       return res.status(404).json({ message: " Student not found" });
     }
 
-    // ✅ هجيب الامتحانات الشهرية المرتبطة بجريد الطالب
+    //  هجيب الامتحانات الشهرية المرتبطة بجريد الطالب
     const exams = await Exam.find({
       isActive: true
     }).lean();
@@ -1474,18 +1474,79 @@ export const redeem_points_for_session_service = async (req, res) => {
 
 
 
+// get the results
+export const get_Homework_Status_service = async (req, res) => {
+  try {
+    const { sessionId } = req.params;
+    const { _id: userId } = req.login_user;
+
+    //  هات الطالب
+    const student = await Student.findOne({ user: userId }).populate({
+      path: "sessionProgress.session",
+      select: "title"
+    });
+    if (!student) {
+      return res.status(404).json({ message: " Student not found" });
+    }
+
+    //  شوف لو السيشن دي عند الطالب
+    const progress = student.sessionProgress.find(
+      sp => sp.session?._id.toString() === sessionId.toString()
+    );
+
+    if (!progress) {
+      return res.status(404).json({ message: " This session is not assigned to the student" });
+    }
+
+    //  شوف هل مقدم واجب ولا لا
+    if (progress.isHomeworkSubmitted  == false || !progress.homeworkSubmission) {
+      return res.status(200).json({
+        message: " Homework status fetched successfully",
+        sessionId,
+        isHomeworkSubmitted: false
+      });
+    }
+
+    //  هات الـ submission
+    const submission = await Submission.findById(progress.homeworkSubmission);
+    
+    if (!submission) {
+      return res.status(404).json({ message: " Homework submission not found" });
+    }
 
 
+    let result = null;
+    // if the homework done 
+    if (submission.isCorrected == true && submission.isReviewed == true ) {
+      result = {
+        finalGrade: submission.finalGrade,
+        finalPercentage: submission.finalPercentage,
+        finalPoints: submission.finalPoints,
+        passed: submission.studentResultHS?.passed ?? false
+      };
+    }
 
+    //  لو لسه ما اتصححش / ما اتراجعش
+    if (submission.isCorrected  == false || submission.isReviewed == false ) {
+      return res.status(200).json({
+        message: " Homework is still under correction",
+        sessionId,
+        isHomeworkSubmitted: true,
+        result: null
+      });
+    }
 
-
-// any thing below is under testing
-//===========================================
-
-
-
-
-
+    return res.status(200).json({
+      message: "  Homework does not submited",
+      sessionId,
+      isHomeworkSubmitted: true,
+      result
+    });
+  } catch (error) {
+    console.error(" Error in get_Homework_Status_service:", error);
+    return res.status(500).json({ message: "Internal server error" });
+  }
+};
 
 
 export const get_Section_Status_service = async (req, res) => {
@@ -1493,60 +1554,76 @@ export const get_Section_Status_service = async (req, res) => {
     const { sessionId } = req.params;
     const { _id: userId } = req.login_user;
 
-    //  هات الطالب المرتبط باليوزر
-    const student = await Student.findOne({ user: userId });
+    //  هات الطالب
+    const student = await Student.findOne({ user: userId }).populate({
+      path: "sessionProgress.session",
+      select: "title"
+    });
     if (!student) {
       return res.status(404).json({ message: " Student not found" });
     }
 
-    const session = await Session.findById(sessionId).populate("section");
-    if (!session || !session.section) {
-      return res.status(404).json({ message: " Section not found for this session" });
+    //  شوف لو السيشن دي عند الطالب
+    const progress = student.sessionProgress.find(
+      sp => sp.session?._id.toString() === sessionId.toString()
+    );
+
+    if (!progress) {
+      return res.status(404).json({ message: " This session is not assigned to the student" });
     }
 
-    const section = await Section.findById(session.section).populate("submissions");
-    const submitted = section.submissions.some(sub => sub.student.toString() === student._id.toString());
+    //  شوف هل مقدم سكشن ولا لا
+    if (progress.isSectionSubmitted == false || !progress.sectionSubmission) {
+      return res.status(200).json({
+        message: "this section does not submited",
+        sessionId,
+        isSectionSubmitted: false
+      });
+    }
+
+
+
+    //  هات الـ submission
+    const submission = await Submission.findById(progress.sectionSubmission);
+
+    if (!submission) {
+      return res.status(404).json({ message: " Section submission not found" });
+    }
+
+    let result = null;
+    // if the section done
+    if (submission.isCorrected == true && submission.isReviewed == true) {
+      result = {
+        finalGrade: submission.finalGrade,
+        finalPercentage: submission.finalPercentage,
+        finalPoints: submission.finalPoints,
+        passed: submission.studentResultHS?.passed ?? false
+      };
+    }
+
+    //  لو لسه ما اتصححش / ما اتراجعش
+    if (submission.isCorrected == false || submission.isReviewed == false) {
+      return res.status(200).json({
+        message: " Section is still under correction",
+        sessionId,
+        isSectionSubmitted: true,
+        result: null
+      });
+    }
 
     return res.status(200).json({
       message: " Section status fetched successfully",
       sessionId,
-      sectionId: section._id,
-      isSectionSubmitted: submitted
+      isSectionSubmitted: true,
+      result
     });
   } catch (error) {
-    console.error(" error in getSectionStatus:", error);
+    console.error(" Error in get_Section_Status_service:", error);
     return res.status(500).json({ message: "Internal server error" });
   }
 };
-export const get_Homework_Status_service = async (req, res) => {
-  try {
-    const { sessionId } = req.params;
-    const { _id: userId } = req.login_user;
 
-    const student = await Student.findOne({ user: userId });
-    if (!student) {
-      return res.status(404).json({ message: " Student not found" });
-    }
 
-    const session = await Session.findById(sessionId).populate("homework");
-    if (!session || !session.homework) {
-      return res.status(404).json({ message: " Homework not found for this session" });
-    }
-
-    const homework = await Homework.findById(session.homework).populate("submissions");
-    const submitted = homework.submissions?.some(sub => sub.student.toString() === student._id.toString());
-
-    return res.status(200).json({
-      message: " Homework status fetched successfully",
-      sessionId,
-      homeworkId: homework._id,
-      isHomeworkSubmitted: submitted || false
-    });
-  } catch (error) {
-    console.error(" error in getHomeworkStatus:", error);
-    return res.status(500).json({ message: "Internal server error" });
-  }
-};
 export const get_exam_Status_service = async (req, res) => {
   try {
     const { examId } = req.params;
@@ -1570,23 +1647,51 @@ export const get_exam_Status_service = async (req, res) => {
       exam: examId
     });
 
-    //  تجهيز الرد
-    return res.status(200).json({
-      message: " Exam result fetched successfully",
-      examId,
-      examTitle: exam.title,
-      isSubmitted: !!submission,
-      grade: submission ? submission.grade : null,
-      isCorrected: submission ? submission.isCorrected : false,
-      reviewStatus: submission ? submission.reviewStatus : null,
-      finalGrade: submission ? submission.finalGrade : null
-    });
+    //  لو لسه ما سلمش
+    if (!submission) {
+      return res.status(200).json({
+        message: "this exam does not submited",
+        examId,
+        examTitle: exam.title,
+        isExamSubmitted: false
+      });
+    }
+
+    let result = null;
+
+    //  لو متصحح ومراجع → رجع النتيجة
+    if (submission.isCorrected === true && submission.isReviewed === true) {
+      result = {
+        finalGrade: submission.finalGrade,
+        finalPercentage: submission.finalPercentage,
+        finalPoints: submission.finalPoints,
+        passed: submission.studentResultHS?.passed ?? false
+      };
+
+      return res.status(200).json({
+        message: " Exam status fetched successfully",
+        examId,
+        examTitle: exam.title,
+        isExamSubmitted: true,
+        result
+      });
+    }
+
+    //  لو لسه ما اتصححش / ما اتراجعش
+    if (submission.isCorrected === false || submission.isReviewed === false) {
+      return res.status(200).json({
+        message: " Exam is still under correction",
+        examId,
+        examTitle: exam.title,
+        isExamSubmitted: true,
+        result: null
+      });
+    }
   } catch (error) {
-    console.error(" Error in get_exam_result_service:", error);
+    console.error(" Error in get_exam_Status_service:", error);
     return res.status(500).json({ message: "Internal server error" });
   }
 };
-
 
 
 
