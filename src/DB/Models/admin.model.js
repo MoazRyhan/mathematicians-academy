@@ -26,18 +26,6 @@ const adminSchema = new mongoose.Schema(
       },
     ],
 
-    // Global statistics (cached or calculated) =====> ( 007 )
-    statistics: {
-      totalStudents: { type: Number, default: 0 },
-      totalAssistants: { type: Number, default: 0 },
-      totalSupervisors: { type: Number, default: 0 },
-      totalTeachers: { type: Number, default: 0 },
-      totalAccountants: { type: Number, default: 0 },
-      totalSessions: { type: Number, default: 0 },
-      totalExams: { type: Number, default: 0 },
-      totalPayments: { type: Number, default: 0 },
-    },
-
     openedSessions: [
       {
         session: { type: mongoose.Schema.Types.ObjectId, ref: "Session" },

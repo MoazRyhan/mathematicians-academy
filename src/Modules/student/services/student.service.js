@@ -1,4 +1,4 @@
-import Parent from "../../../DB/Models/parent.model.js";
+
 import Student from "../../../DB/Models/student.model.js";
 import User from "../../../DB/Models/user.model.js";
 import Teacher from './../../../DB/Models/teacher.model.js';
@@ -14,6 +14,7 @@ import Section from "../../../DB/Models/section.model.js";
 import Exam from "../../../DB/Models/exam.model.js";
 import Homework from './../../../DB/Models/homework.model.js';
 import { shuffleArray } from "../../../Common/commons.js";
+import { uploadToDrive } from "../../../config/googleDrive.config.js";
 
 
 
@@ -215,7 +216,6 @@ export const delete_student_service = async (req, res) => {
 
     // 3️⃣ Delete related Student/Parent/Teacher docs
     const deletedStudent = await Student.findOneAndDelete({ user: _id });
-    await Parent.findOneAndDelete({ user: _id });
     await Teacher.findOneAndDelete({ user: _id });
 
     // 4️⃣ Cleanup Cloudinary resources if student has folder
@@ -495,9 +495,9 @@ export const open_session_video_service = async (req, res) => {
     }
 
     // ✅ التحقق من grade و division
-    // if (student.division !== session.division || student.grade !== session.grade) {
-    //   return res.status(403).json({ message: " You are not allowed to watch this session" });
-    // }
+    if (student.division !== session.division || student.grade !== session.grade) {
+      return res.status(403).json({ message: " You are not allowed to watch this session" });
+    }
 
 // ✅ لو السيشن موجودة بالفعل عند الطالب في sessionProgress
 const existingProgress = student.sessionProgress.find(
@@ -627,7 +627,6 @@ export const get_payment_history_service = async (req, res) => {
     const payments = await Payment.find({ student: student._id })
       .sort({ createdAt: -1 });
 
-      // console.log(student._id);
       
 
     return res.status(200).json({
@@ -681,17 +680,20 @@ export const submit_Homework_Solution_service = async (req, res) => {
 
 
     // ================= Upload PDF =================
-    const folderPath = `${process.env.FOLDER_NAME_CLOUDINARY}/User/Submissions/Homework/${sessionExist?.homework?.title}/${student?._id}`;
-    const uploadResult = await cloudinary().uploader.upload(req.file.path, {
-      folder: folderPath,
-      resource_type: "auto",
-      format: "pdf"
-    });
 
-    if (!uploadResult?.public_id || !uploadResult?.secure_url) {
-      return res.status(500).json({ message: " Failed to upload file to Cloudinary" });
+    
+    const folderPath = `User/Submissions/Homework/${sessionExist?.homework?.title}/${student?.fullName}`;
+    const fileData = await uploadToDrive(
+      req.file.path,
+      req.file.filename,
+      req.file.mimetype,
+      folderPath
+    );
+    
+
+    if (!fileData?.name || !fileData?.webViewLink ) {
+      return res.status(500).json({ message: "Failed to upload file to Google Drive" });
     }
-
     // ================= Prepare studentResultHS =================
     let totalPoints = 0;
     let totalGrade = 0;
@@ -723,8 +725,8 @@ export const submit_Homework_Solution_service = async (req, res) => {
       submissionType: SUBMISSION_TYPE.HOMEWORK,
       pdfSolution: {
         files: {
-          public_id: uploadResult.public_id,
-          secure_url: uploadResult.secure_url
+          Folder_name: fileData.name ,
+          secure_url: fileData.webViewLink
         },
         folderId: folderPath
       },
@@ -825,15 +827,16 @@ export const upload_Section_Material_service = async (req, res) => {
       return res.status(400).json({ message: " You have already submitted this section" });
     }
   // ================= Upload PDF =================
-    const folderPath = `${process.env.FOLDER_NAME_CLOUDINARY}/User/Submissions/Section/${sessionExist?.section?.title}/${student?._id}`;
-    const uploadResult = await cloudinary().uploader.upload(req.file.path, {
-      folder: folderPath,
-      resource_type: "auto",
-      format: "pdf"
-    });
-
-    if (!uploadResult?.public_id || !uploadResult?.secure_url) {
-      return res.status(500).json({ message: " Failed to upload file to Cloudinary" });
+   const folderPath = `User/Submissions/Section/${sessionExist?.section?.title}/${student?.fullName}`;
+   
+   const fileData = await uploadToDrive(
+     req.file.path,
+     req.file.filename,
+     req.file.mimetype,
+     folderPath
+   );
+    if (!fileData?.name || !fileData?.webViewLink ) {
+      return res.status(500).json({ message: "Failed to upload file to Google Drive" }); 
     }
 
     // ================= Prepare studentResultHS =================
@@ -867,8 +870,8 @@ export const upload_Section_Material_service = async (req, res) => {
       submissionType: SUBMISSION_TYPE.SECTION,
       pdfSolution: {
         files: {
-          public_id: uploadResult.public_id,
-          secure_url: uploadResult.secure_url
+          Folder_name: fileData.name ,
+          secure_url: fileData.webViewLink
         },
         folderId: folderPath
       },
@@ -1092,7 +1095,6 @@ export const submit_Exam_Solution_service = async (req, res) => {
     const { _id: userId } = req.login_user;
     let { answers } = req.body; // [{ questionId, answer }]
 
-    console.log( req.body.answers );
     
     // لو جايالي كـ string من form-data
   if (typeof answers === "string") {
@@ -1286,16 +1288,14 @@ export const submit_Exam_Solution_service = async (req, res) => {
     const passed = percentage >= (examExist.passingScore);
 
     // ================== رفع الـ PDF ==================
-    const folderPath = `${process.env.FOLDER_NAME_CLOUDINARY}/User/Submissions/Exams/${examExist.title}/${student?._id}`;
-    const uploadResult = await cloudinary().uploader.upload(req.file.path, {
-      folder: folderPath,
-      resource_type: "auto",
-      format: "pdf"
-    });
-
-    if (!uploadResult?.public_id || !uploadResult?.secure_url) {
-      return res.status(500).json({ message: " Failed to upload file to Cloudinary" });
-    }
+    const folderPath = `User/Submissions/Exam/${examExist?.title}/${student?.fullName}`;
+    
+    const fileData = await uploadToDrive(
+      req.file.path,
+      req.file.filename,
+      req.file.mimetype,
+      folderPath
+    );
 
     // ================== Create Submission ==================
     const newSubmission = await Submission.create({
@@ -1303,7 +1303,10 @@ export const submit_Exam_Solution_service = async (req, res) => {
       exam: examExist._id,
       submissionType: examExist?.month ? SUBMISSION_TYPE.MONTHLY_EXAM : SUBMISSION_TYPE.EXAM ,
       pdfSolution: {
-        files: { public_id: uploadResult.public_id, secure_url: uploadResult.secure_url },
+        files: {
+          Folder_name: fileData.name ,
+          secure_url: fileData.webViewLink
+        },
         folderId: folderPath
       },
       deadline: examExist.deadline || Date.now() ,
@@ -1428,18 +1431,7 @@ export const get_exams_service = async (req, res) => {
 
 
 
-
-
-
-
-
-
-
-
-// any thing below is under testing
-//===========================================
-
-
+// session from points
 export const redeem_points_for_session_service = async (req, res) => {
   try {
     const { _id: userId } = req.login_user;
@@ -1449,7 +1441,7 @@ export const redeem_points_for_session_service = async (req, res) => {
       return res.status(404).json({ message: " Student not found" });
     }
 
-    const POINTS_PER_SESSION = 1000;
+    const POINTS_PER_SESSION = 500 ;
 
     if (student.redeemablePoints < POINTS_PER_SESSION) {
       return res.status(400).json({
@@ -1487,7 +1479,15 @@ export const redeem_points_for_session_service = async (req, res) => {
 
 
 
-// ============================== need to work with ( assistant and supervisor flow ) ===================== >for abduo
+// any thing below is under testing
+//===========================================
+
+
+
+
+
+
+
 export const get_Section_Status_service = async (req, res) => {
   try {
     const { sessionId } = req.params;
@@ -1586,6 +1586,8 @@ export const get_exam_Status_service = async (req, res) => {
     return res.status(500).json({ message: "Internal server error" });
   }
 };
+
+
 
 
 

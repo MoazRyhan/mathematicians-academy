@@ -942,7 +942,6 @@ export const assign_Assistant_To_Supervisor_service = async (req, res) => {
 };
 
 
-
 export const update_group_members_service = async (req, res) => {
   try {
     const { role: ROLE } = req.login_user;

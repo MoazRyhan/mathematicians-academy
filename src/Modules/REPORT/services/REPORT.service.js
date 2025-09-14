@@ -29,7 +29,7 @@ export const get_student_reports_service = async (req, res) => {
       });
 
     if (!student) {
-      return res.status(404).json({ message: "❌ Student not found" });
+      return res.status(404).json({ message: " Student not found" });
     }
 
     const reports = student.sessionProgress.map(sp => ({
@@ -49,7 +49,7 @@ export const get_student_reports_service = async (req, res) => {
       reports
     });
   } catch (error) {
-    console.error("❌ Error in get_student_reports_service:", error);
+    console.error(" Error in get_student_reports_service:", error);
     return res.status(500).json({ message: "Internal server error" });
   }
 };
@@ -65,7 +65,7 @@ export const get_student_calendar_service = async (req, res) => {
       });
 
     if (!student) {
-      return res.status(404).json({ message: "❌ Student not found" });
+      return res.status(404).json({ message: " Student not found" });
     }
 
     const calendar = student.sessionProgress.map(sp => ({
@@ -77,7 +77,7 @@ export const get_student_calendar_service = async (req, res) => {
 
     return res.status(200).json({ student: student.fullName, calendar });
   } catch (error) {
-    console.error("❌ Error in get_student_calendar_service:", error);
+    console.error(" Error in get_student_calendar_service:", error);
     return res.status(500).json({ message: "Internal server error" });
   }
 };
@@ -88,7 +88,7 @@ export const get_student_points_service = async (req, res) => {
 
     const student = await Student.findOne({ user: userId });
     if (!student) {
-      return res.status(404).json({ message: "❌ Student not found" });
+      return res.status(404).json({ message: " Student not found" });
     }
 
     return res.status(200).json({
@@ -96,7 +96,7 @@ export const get_student_points_service = async (req, res) => {
       redeemablePoints: student.redeemablePoints
     });
   } catch (error) {
-    console.error("❌ Error in get_student_points_service:", error);
+    console.error(" Error in get_student_points_service:", error);
     return res.status(500).json({ message: "Internal server error" });
   }
 };
@@ -113,12 +113,12 @@ export const get_weekly_report_service = async (req, res) => {
     const { studentId } = req.body;
 
     if (!studentId) {
-      return res.status(400).json({ message: "❌ studentId is required" });
+      return res.status(400).json({ message: " studentId is required" });
     }
 
     const student = await Student.findById(studentId).populate("sessionProgress.session");
     if (!student) {
-      return res.status(404).json({ message: "❌ Student not found" });
+      return res.status(404).json({ message: " Student not found" });
     }
 
     const startOfWeek = moment().startOf("week");
@@ -144,7 +144,7 @@ export const get_weekly_report_service = async (req, res) => {
       }
     });
   } catch (error) {
-    console.error("❌ Error in get_weekly_report_service:", error);
+    console.error(" Error in get_weekly_report_service:", error);
     return res.status(500).json({ message: "Internal server error" });
   }
 };
@@ -154,12 +154,12 @@ export const get_monthly_report_service = async (req, res) => {
     const { studentId } = req.body;
 
     if (!studentId) {
-      return res.status(400).json({ message: "❌ studentId is required" });
+      return res.status(400).json({ message: " studentId is required" });
     }
 
     const student = await Student.findById(studentId).populate("sessionProgress.session");
     if (!student) {
-      return res.status(404).json({ message: "❌ Student not found" });
+      return res.status(404).json({ message: " Student not found" });
     }
 
     const startOfMonth = moment().startOf("month");
@@ -185,7 +185,7 @@ export const get_monthly_report_service = async (req, res) => {
       }
     });
   } catch (error) {
-    console.error("❌ Error in get_monthly_report_service:", error);
+    console.error(" Error in get_monthly_report_service:", error);
     return res.status(500).json({ message: "Internal server error" });
   }
 };
@@ -195,12 +195,12 @@ export const get_student_deadlines_service = async (req, res) => {
     const { studentId } = req.body;
 
     if (!studentId) {
-      return res.status(400).json({ message: "❌ studentId is required" });
+      return res.status(400).json({ message: " studentId is required" });
     }
 
     const student = await Student.findById(studentId).populate("sessionProgress.session");
     if (!student) {
-      return res.status(404).json({ message: "❌ Student not found" });
+      return res.status(404).json({ message: " Student not found" });
     }
 
     const deadlines = student.sessionProgress
@@ -218,7 +218,7 @@ export const get_student_deadlines_service = async (req, res) => {
       data: deadlines
     });
   } catch (error) {
-    console.error("❌ Error in get_student_deadlines_service:", error);
+    console.error(" Error in get_student_deadlines_service:", error);
     return res.status(500).json({ message: "Internal server error" });
   }
 };
@@ -254,7 +254,7 @@ export const get_System_Statistics_service = async (req, res) => {
       }
     });
   } catch (error) {
-    console.error("❌ Error in getSystemStatistics:", error);
+    console.error(" Error in getSystemStatistics:", error);
     return res.status(500).json({ message: "Internal server error" });
   }
 };
@@ -284,7 +284,7 @@ export const get_Roles_Performance_Report_service = async (req, res) => {
       }
     });
   } catch (error) {
-    console.error("❌ Error in getRolesPerformanceReport:", error);
+    console.error(" Error in getRolesPerformanceReport:", error);
     return res.status(500).json({ message: "Internal server error" });
   }
 };
@@ -304,7 +304,7 @@ export const get_Supervisors_And_Assistants_Performance_service = async (req, re
       .populate("assistants", "user performanceScore");
 
     if (!teacher) {
-      return res.status(404).json({ message: "❌ Teacher not found" });
+      return res.status(404).json({ message: " Teacher not found" });
     }
 
     const supervisors = await Supervisor.find({ _id: { $in: teacher.supervisors } })
@@ -331,7 +331,7 @@ export const get_Supervisors_And_Assistants_Performance_service = async (req, re
       }
     });
   } catch (error) {
-    console.error("❌ Error in getSupervisorsAndAssistantsPerformance:", error);
+    console.error(" Error in getSupervisorsAndAssistantsPerformance:", error);
     return res.status(500).json({ message: "Internal server error" });
   }
 };
@@ -343,7 +343,7 @@ export const get_Students_Stats_In_Teacher_Subjects_service = async (req, res) =
     const teacher = await Teacher.findOne({ user: teacherUserId }).populate("Sessions");
 
     if (!teacher) {
-      return res.status(404).json({ message: "❌ Teacher not found" });
+      return res.status(404).json({ message: " Teacher not found" });
     }
 
     const sessionIds = teacher.Sessions.map(s => s._id);
@@ -372,7 +372,7 @@ export const get_Students_Stats_In_Teacher_Subjects_service = async (req, res) =
       }
     });
   } catch (error) {
-    console.error("❌ Error in getStudentsStatsInTeacherSubjects:", error);
+    console.error(" Error in getStudentsStatsInTeacherSubjects:", error);
     return res.status(500).json({ message: "Internal server error" });
   }
 };
@@ -390,7 +390,7 @@ export const get_Supervisor_Groups_Stats_service = async (req, res) => {
     const supervisor = await Supervisor.findOne({ user: supervisorUserId }).populate("assistants");
 
     if (!supervisor) {
-      return res.status(404).json({ message: "❌ Supervisor not found" });
+      return res.status(404).json({ message: " Supervisor not found" });
     }
 
     // جمع كل المجموعات من كل المساعدين
@@ -425,7 +425,7 @@ export const get_Supervisor_Groups_Stats_service = async (req, res) => {
       }
     });
   } catch (error) {
-    console.error("❌ Error in getSupervisorGroupsStats:", error);
+    console.error(" Error in getSupervisorGroupsStats:", error);
     return res.status(500).json({ message: "Internal server error" });
   }
 };
@@ -452,7 +452,7 @@ export const get_AllPayments_service = async (req, res) => {
 
     return res.status(200).json({ message: "✅ All Payments Fetched", payments });
   } catch (error) {
-    console.error("❌ Error in getAllPayments:", error);
+    console.error(" Error in getAllPayments:", error);
     return res.status(500).json({ message: "Internal server error" });
   }
 };
@@ -474,7 +474,7 @@ export const get_FinancialStats_service = async (req, res) => {
       }
     });
   } catch (error) {
-    console.error("❌ Error in getFinancialStats:", error);
+    console.error(" Error in getFinancialStats:", error);
     return res.status(500).json({ message: "Internal server error" });
   }
 };

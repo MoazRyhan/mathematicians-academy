@@ -17,7 +17,7 @@ const submissionSchema = new mongoose.Schema({
 
   pdfSolution: {
     files: {
-      public_id: String,
+      Folder_name: String,
       secure_url: String
     },
     folderId: String

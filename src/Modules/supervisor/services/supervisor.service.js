@@ -1,7 +1,6 @@
 import Supervisor from "../../../DB/Models/supervisor.model.js";
 import User from "../../../DB/Models/user.model.js";
 import { decryption } from "../../../Utils/encryption.utils.js";
-import CorrectionReview from './../../../DB/Models/correctionReview.model.js';
 import AssistantRequest from './../../../DB/Models/assistantRequest.model.js';
 import Assistant from "../../../DB/Models/assistant.model.js";
 import Student from "../../../DB/Models/student.model.js";

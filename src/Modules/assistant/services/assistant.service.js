@@ -2,15 +2,10 @@ import Assistant from "../../../DB/Models/assistant.model.js";
 import Submission from "../../../DB/Models/submission.model.js";
 import User from "../../../DB/Models/user.model.js";
 import { decryption } from "../../../Utils/encryption.utils.js";
-import CorrectionRequest from './../../../DB/Models/correctionRequest.model.js';
 import AssistantRequest from "../../../DB/Models/assistantRequest.model.js";
 import { ASSISTANT_REQUEST_STATUS, ASSISTANT_REQUEST_TYPE, HOMEWORK_QUESTION_TYPE, SUBMISSION_REVIEW_STATUS, SUBMISSION_TYPE, TARGET_MODEL_TYPE } from "../../../Constants/constants.js";
 import Student from "../../../DB/Models/student.model.js";
 import Session from './../../../DB/Models/session.model.js';
-import Homework from "../../../DB/Models/homework.model.js";
-import Section from "../../../DB/Models/section.model.js";
-
-
 
 
 // ==================== assistant data

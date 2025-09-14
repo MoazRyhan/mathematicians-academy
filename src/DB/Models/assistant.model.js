@@ -12,11 +12,11 @@ const assistantSchema = new mongoose.Schema({
 
   groups: [{ type: mongoose.Schema.Types.ObjectId, ref: 'Group' }],
 
-  correctionRequests: [{ type: mongoose.Schema.Types.ObjectId, ref: 'CorrectionRequest' }],
-
-  assistantRequest: [{ type: mongoose.Schema.Types.ObjectId, ref: 'AssistantRequest' }], // ✅ جديد  =====> ( 007 )
+  assistantRequest: [{ type: mongoose.Schema.Types.ObjectId, ref: 'AssistantRequest' }], 
 
   performanceScore: { type: Number, default: 100 },
+
+  WrongQuestions: { type: Number },
   
 }, { timestamps: true });
 
