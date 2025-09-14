@@ -10,10 +10,6 @@ const supervisorSchema = new mongoose.Schema({
   
   assistants: [{ type: mongoose.Schema.Types.ObjectId, ref: 'Assistant' }],
   
-  correctionReviews: [{ type: mongoose.Schema.Types.ObjectId, ref: 'CorrectionReview' }],
-
-  correctionRequest: [{ type: mongoose.Schema.Types.ObjectId, ref: 'CorrectionRequest' }],
-
   assistantRequest: [{ type: mongoose.Schema.Types.ObjectId, ref: 'AssistantRequest' }], // ✅ جديد =====> ( 007 )
   
 }, { timestamps: true });

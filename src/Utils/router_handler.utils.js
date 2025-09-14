@@ -18,6 +18,7 @@ const router_handler = async (app , express  ) => {
 
     app.use( express.json() )
 
+
     app.use( "/auth" ,  auth_controller )
     app.use( "/admin" ,  admin_controller )
     app.use( "/student" ,  student_controller )

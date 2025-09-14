@@ -8,7 +8,6 @@ import { Multer_host } from "../../Middlewares/multer_middleware.js";
 const { STUDENT } = system_role
 
 
-
 student_controller.use(authentication_middleware() , authorization_middleware([STUDENT]) )
 student_controller.get(  "/get_student_data"   , error_handler_middleware(student_services.get_student_service)  ) 
 student_controller.post(  "/updata_student_data"   , error_handler_middleware(student_services.update_student_service)  ) 
@@ -28,7 +27,7 @@ student_controller.post(  "/submit_exam/:examId"  , Multer_host( PDFExtension ).
 student_controller.post(  "/submit_video_quizzes/:sessionId"  , error_handler_middleware(student_services.submit_VideoQuiz_Answers_service)  ) 
 
 // monthly exam
-student_controller.get("/get_monthly_exams",  error_handler_middleware( student_services.get_monthly_exams_service));
+student_controller.get("/get_exams",  error_handler_middleware( student_services.get_exams_service));
 
 // session from the points
 student_controller.post("/redeem_points",  error_handler_middleware(student_services.redeem_points_for_session_service));
@@ -42,7 +41,6 @@ student_controller.post("/redeem_points",  error_handler_middleware(student_serv
 student_controller.get("/get_section_status/:sessionId",  error_handler_middleware (student_services.get_Section_Status_service))
 student_controller.get("/get_homework_status/:sessionId",  error_handler_middleware (student_services.get_Homework_Status_service));
 student_controller.get("/get_exam_status/:examId",  error_handler_middleware (student_services.get_exam_Status_service));
-
 
 
 

@@ -163,6 +163,7 @@ export const TARGET_MODEL_TYPE = {
  SUBMISSION_HOMEWORK:'Submission:Homework',
  SUBMISSION_SECTION :'Submission:Section',
  SUBMISSION_EXAM :'Submission:Exam',
+ SUBMISSION_VIDEO_QUIZ :'Submission:VideoQuiz'
 };
 
 

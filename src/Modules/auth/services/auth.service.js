@@ -16,49 +16,61 @@ import Admin from "../../../DB/Models/admin.model.js";
 /**
  * Create new admin account ( and this is just for one time )
  */
+
 export const create_admin_service = async (req, res) => {
   try {
-    const { userId } = req.body;
+    const {
+      name,
+      email,
+      password,
+      rePassword,
+      phoneNumber,
+    } = req.body;
 
-    // ✅ 1) تحقق هل يوجد Admin واحد بالفعل؟
+        // ✅ 1) تحقق هل يوجد Admin بالفعل؟
     const existingAdminsCount = await Admin.countDocuments();
     if (existingAdminsCount > 0) {
       return res.status(400).json({
         message: "❌ There is already an Admin account. You cannot create another one.",
       });
     }
-
-    // ✅ 2) تحقق من وجود المستخدم
-    const user = await User.findById(userId);
-    if (!user) {
-      return res.status(404).json({ message: "❌ User not found" });
+    // ✅ 1) تحقق من كلمة السر
+    if (password !== rePassword) {
+      return res.status(409).json({ message: "Password must match RePassword" });
     }
 
-    // ✅ 3) تحقق من أن هذا المستخدم ليس مرتبطًا مسبقًا كـ Admin
-    const existingAdmin = await Admin.findOne({ user: userId });
-    if (existingAdmin) {
-      return res.status(400).json({ message: "❌ This user is already an Admin" });
+    // ✅ 2) تحقق إن الايميل مش مستخدم قبل كده
+    const existingUser = await User.findOne({ email });
+    if (existingUser) {
+      return res.status(400).json({ message: "Email already registered" });
     }
 
+    // ✅ 3) إنشاء الـ User
+    const hashedPassword = hashSync(password, +process.env.PASSWORD_SALT);
+    const newUser = await User.create({
+      name,
+      email,
+      password: hashedPassword,
+      role: system_role.ADMIN, // تعيين الـ role مباشر كـ Admin
+      phoneNumber: await encryption({
+        value: phoneNumber,
+        secret_key: process.env.PHONE_ENCRYPTION_SECRET,
+      }),
+    });
 
-    // remake the admin
-    user.role = system_role.ADMIN 
-    await user.save()
-
-    // ✅ 4) إنشاء الـ Admin
-    const newAdmin = new Admin({ user: userId });
-    await newAdmin.save();
+    // ✅ 4) إنشاء الـ Admin المرتبط بالـ User
+    const newAdmin = await Admin.create({ user: newUser._id });
 
     return res.status(201).json({
       message: "✅ Admin created successfully",
+      user: newUser,
       admin: newAdmin,
     });
   } catch (error) {
-    console.error("❌ Error in create_admin_service:", error);
+    console.error("Error in create_admin_service:", error);
     return res.status(500).json({ message: "Internal server error" });
   }
 };
-
 
 //================================== normal users
 
@@ -174,16 +186,16 @@ export const sign_up_service = async (req, res) => {
             folder: folderPath,
           });
         } catch (error) {
-          console.error("❌ Cloudinary upload failed:", error);
+          console.error(" Cloudinary upload failed:", error);
           return res
             .status(500)
-            .json({ message: "❌ Failed to upload one or more ID images" });
+            .json({ message: " Failed to upload one or more ID images" });
         }
 
         if (!uploadResult || !uploadResult.secure_url) {
           return res
             .status(500)
-            .json({ message: "❌ Image upload unsuccessful" });
+            .json({ message: " Image upload unsuccessful" });
         }
 
         uploadedImages.push({
@@ -271,7 +283,7 @@ export const login_service = async (req, res) => {
         });
       } else if (student.status === STUDENT_ENUMS.STATUS.REJECTED) {
         return res.status(403).json({
-          message: "❌ your application is rejected, call the MS or try again later",
+          message: " your application is rejected, call the MS or try again later",
         });
       }
     }
@@ -425,9 +437,55 @@ export const refresh_token_service = async (req, res) => {
   }
 };
 
+
+export const user_Update_Own_Password_service = async (req, res) => {
+  try {
+    const { password, newPassword } = req.body;
+    const { _id: loginUserId, role } = req.login_user; // جاي من الميدل وير بتاع الـ auth
+
+    // 1️⃣ تأكد إن اليوزر ليه role معروف في السيستم
+    if (!Object.values(system_role).includes(role)) {
+      return res.status(403).json({ message: "❌ Invalid role" });
+    }
+
+    // 2️⃣ جيب اليوزر من الـ DB
+    const user = await User.findById(loginUserId);
+    if (!user) {
+      return res.status(404).json({ message: "❌ User not found" });
+    }
+
+    // 3️⃣ تحقق من الباسورد الحالي
+    const pass_right = compareSync(password, user.password);
+    if (!pass_right) {
+      return res.status(409).json({ message: "❌ Current password is wrong" });
+    }
+
+    // 4️⃣ تحقق من وجود newPassword
+    if (!newPassword) {
+      return res.status(400).json({
+        message: "⚠️ Please send `newPassword`",
+      });
+    }
+
+    // 5️⃣ Hash new password
+    const hashedPassword = hashSync(newPassword, +process.env.PASSWORD_SALT);
+    user.password = hashedPassword;
+
+    await user.save();
+
+    return res.status(200).json({
+      message: "✅ Password updated successfully. Please login again with your new password.",
+    });
+  } catch (error) {
+    console.error("❌ error in user_Update_Own_Password_service:", error);
+    return res.status(500).json({ message: "internal server error" });
+  }
+};
+
+
+
 // any thing below is under testing
 //===========================================
-
 
 
 

@@ -1,4 +1,4 @@
-import Parent from "../../../DB/Models/parent.model.js";
+
 import Student from "../../../DB/Models/student.model.js";
 import User from "../../../DB/Models/user.model.js";
 import Teacher from './../../../DB/Models/teacher.model.js';
@@ -12,6 +12,9 @@ import { PAYMENT_TYPE } from "../../../Constants/constants.js";
 import PaymentCode from "../../../DB/Models/paymentCode.model.js";
 import Section from "../../../DB/Models/section.model.js";
 import Exam from "../../../DB/Models/exam.model.js";
+import Homework from './../../../DB/Models/homework.model.js';
+import { shuffleArray } from "../../../Common/commons.js";
+import { uploadToDrive } from "../../../config/googleDrive.config.js";
 
 
 
@@ -213,7 +216,6 @@ export const delete_student_service = async (req, res) => {
 
     // 3️⃣ Delete related Student/Parent/Teacher docs
     const deletedStudent = await Student.findOneAndDelete({ user: _id });
-    await Parent.findOneAndDelete({ user: _id });
     await Teacher.findOneAndDelete({ user: _id });
 
     // 4️⃣ Cleanup Cloudinary resources if student has folder
@@ -493,9 +495,9 @@ export const open_session_video_service = async (req, res) => {
     }
 
     // ✅ التحقق من grade و division
-    // if (student.division !== session.division || student.grade !== session.grade) {
-    //   return res.status(403).json({ message: " You are not allowed to watch this session" });
-    // }
+    if (student.division !== session.division || student.grade !== session.grade) {
+      return res.status(403).json({ message: " You are not allowed to watch this session" });
+    }
 
 // ✅ لو السيشن موجودة بالفعل عند الطالب في sessionProgress
 const existingProgress = student.sessionProgress.find(
@@ -625,7 +627,6 @@ export const get_payment_history_service = async (req, res) => {
     const payments = await Payment.find({ student: student._id })
       .sort({ createdAt: -1 });
 
-      // console.log(student._id);
       
 
     return res.status(200).json({
@@ -637,6 +638,7 @@ export const get_payment_history_service = async (req, res) => {
     return res.status(500).json({ message: "Internal server error" });
   }
 };
+
 
 
 
@@ -668,7 +670,7 @@ export const submit_Homework_Solution_service = async (req, res) => {
     }
 
     // if he send it before
-    const existingProgress = student.sessionProgress.find(
+    const existingProgress = student?.sessionProgress?.find(
       sp => sp.session.toString() === sessionId && sp.isHomeworkSubmitted === true
     );
 
@@ -676,32 +678,78 @@ export const submit_Homework_Solution_service = async (req, res) => {
       return res.status(400).json({ message: " You have already submitted this homework" });
     }
 
-    const folderPath = `${process.env.FOLDER_NAME_CLOUDINARY}/User/Submissions/Homework/${sessionExist?.homework?.title}/${student?._id}`;
-    const uploadResult = await cloudinary().uploader.upload(req.file.path, {
-      folder: folderPath,
-      resource_type: "raw",
-      format: "pdf"
-    });
 
-    if (!uploadResult?.public_id || !uploadResult?.secure_url) {
-      return res.status(500).json({ message: " Failed to upload file to Cloudinary" });
+    // ================= Upload PDF =================
+
+    
+    const folderPath = `User/Submissions/Homework/${sessionExist?.homework?.title}/${student?.fullName}`;
+    const fileData = await uploadToDrive(
+      req.file.path,
+      req.file.filename,
+      req.file.mimetype,
+      folderPath
+    );
+    
+
+    if (!fileData?.name || !fileData?.webViewLink ) {
+      return res.status(500).json({ message: "Failed to upload file to Google Drive" });
     }
+    // ================= Prepare studentResultHS =================
+    let totalPoints = 0;
+    let totalGrade = 0;
+
+    const preparedQuestions = sessionExist.homework.questions.map(q => {
+      totalPoints += q.points || 0;
+      totalGrade += q.grade || 0;
+
+      return {
+        questionId: q._id,
+        questionText: q.questionText,
+        type:q.type ,
+        options: q.options || [],
+        studentAnswer: null, // ✅ لسه الطالب ماجاوبش، الأسستنت هيصحح بعدين
+        correctAnswer: q.correctAnswer || null,
+        isCorrect: false,
+        didSomeThingWrong: false,
+        point: 0,
+        grade: q.grade,
+        gradeAfter: null,
+        assistantNotes: null,
+        supervisorComment: null
+      };
+    });
 
     const newSubmission = await Submission.create({
       student: student._id,
       session: sessionExist._id,
       submissionType: SUBMISSION_TYPE.HOMEWORK,
       pdfSolution: {
-         files : { public_id: uploadResult.public_id,
-        secure_url: uploadResult.secure_url },
+        files: {
+          Folder_name: fileData.name ,
+          secure_url: fileData.webViewLink
+        },
         folderId: folderPath
       },
       homework: sessionExist.homework._id,
-      deadline: sessionExist.homework?.deadline ,
-      submissionTime: Date.now()
+      deadline: sessionExist.homework?.deadline,
+      submissionTime: Date.now(),
+
+      // ✅ ضيف studentResultHS
+      studentResultHS: {
+        totalGrade: totalGrade,
+        totalPoints: totalPoints,
+        passingScore: sessionExist.homework?.passingScore || 50, // لو عندك passingScore جوه homework
+        studentGrade: 0,
+        studentPoints: 0,
+        percentage: 0,
+        passed: false,
+        answers: {
+          questions: preparedQuestions
+        }
+      }
     });
 
-    //  تحديث sessionProgress في Student
+    // ================= Update student session progress =================
     const sessionProgressIndex = student.sessionProgress.findIndex(
       sp => sp.session.toString() === sessionId
     );
@@ -718,6 +766,19 @@ export const submit_Homework_Solution_service = async (req, res) => {
     }
 
     await student.save();
+
+
+    //  updata homework
+    const homework = await Homework.findById(sessionExist.homework);
+    if (!homework) {
+      return res.status(400).json({ message: " This homework not exist" });
+    }
+
+   await Homework.updateOne(
+    { _id: sessionExist.homework },
+    { $push: { submissions: newSubmission._id } }
+   );
+
 
     return res.status(201).json({
       message: " Homework submitted successfully",
@@ -765,34 +826,75 @@ export const upload_Section_Material_service = async (req, res) => {
     if (existingProgress) {
       return res.status(400).json({ message: " You have already submitted this section" });
     }
-
-    const folderPath = `${process.env.FOLDER_NAME_CLOUDINARY}/User/Submissions/Section/${sessionExist?.section?.title}/${student?._id}`;
-    const uploadResult = await cloudinary().uploader.upload(req.file.path, {
-      folder: folderPath,
-      resource_type: "raw",
-      format: "pdf"
-    });
-
-    if (!uploadResult?.public_id || !uploadResult?.secure_url) {
-      return res.status(500).json({ message: " Failed to upload file to Cloudinary" });
+  // ================= Upload PDF =================
+   const folderPath = `User/Submissions/Section/${sessionExist?.section?.title}/${student?.fullName}`;
+   
+   const fileData = await uploadToDrive(
+     req.file.path,
+     req.file.filename,
+     req.file.mimetype,
+     folderPath
+   );
+    if (!fileData?.name || !fileData?.webViewLink ) {
+      return res.status(500).json({ message: "Failed to upload file to Google Drive" }); 
     }
 
+    // ================= Prepare studentResultHS =================
+    let totalPoints = 0;
+    let totalGrade = 0;
+
+    const preparedQuestions = sessionExist.section.questions.map(q => {
+      totalPoints += q.points || 0;
+      totalGrade += q.grade || 0;
+
+      return {
+        questionId: q._id,
+        questionText: q.questionText,
+        type : q.type ,
+        options: q.options || [],
+        studentAnswer: null,
+        correctAnswer: q.correctAnswer || null,
+        isCorrect: false,
+        didSomeThingWrong: false,
+        point: 0,
+        grade: q.grade,
+        gradeAfter: null,
+        assistantNotes: null,
+        supervisorComment: null
+      };
+    });
 
     const newSubmission = await Submission.create({
       student: student._id,
       session: sessionExist._id,
       submissionType: SUBMISSION_TYPE.SECTION,
       pdfSolution: {
-        files :{ public_id: uploadResult.public_id,
-        secure_url: uploadResult.secure_url },
+        files: {
+          Folder_name: fileData.name ,
+          secure_url: fileData.webViewLink
+        },
         folderId: folderPath
       },
       section: sessionExist.section._id,
       deadline: sessionExist.section?.deadline,
-      submissionTime : Date.now()
+      submissionTime: Date.now(),
+
+      // ✅ ضيف studentResultHS
+      studentResultHS: {
+        totalGrade: totalGrade,
+        totalPoints: totalPoints,
+        passingScore: sessionExist.section?.passingScore || 50,
+        studentGrade: 0,
+        studentPoints: 0,
+        percentage: 0,
+        passed: false,
+        answers: {
+          questions: preparedQuestions
+        }
+      }
     });
 
-    //  تحديث sessionProgress في Student
+    // ================= Update session progress =================
     const sessionProgressIndex = student.sessionProgress.findIndex(
       sp => sp.session.toString() === sessionId
     );
@@ -810,6 +912,19 @@ export const upload_Section_Material_service = async (req, res) => {
 
     await student.save();
 
+    //  updata section
+    const section = await Section.findById(sessionExist.section);
+    if (!section) {
+      return res.status(400).json({ message: " This section not exist" });
+    }
+
+    
+   await Section.updateOne(
+    { _id: sessionExist.section },
+    { $push: { submissions: newSubmission._id } }
+   );
+
+
     return res.status(201).json({
       message: " Section submitted successfully",
       submission: newSubmission
@@ -820,146 +935,151 @@ export const upload_Section_Material_service = async (req, res) => {
   }
 };
 
-//==================== still under testing ==================
+
 export const submit_VideoQuiz_Answers_service = async (req, res) => {
   try {
     const { sessionId } = req.params;
     const { _id: userId } = req.login_user;
-    const { answers } = req.body; // array of { segmentId, responses: [{ questionId, answer }] }
+    const { responses, segmentId } = req.body; // { segmentId, responses: [{ questionId, answer }] }
 
-    if (!answers || !Array.isArray(answers)) {
-      return res.status(400).json({ message: "Answers must be provided as an array (see API docs)" });
+    if (!responses || !Array.isArray(responses)) {
+      return res.status(400).json({ message: "Responses must be provided as an array" });
     }
 
-    // جلب الطالب
+    // ✅ جلب الطالب
     const student = await Student.findOne({ user: userId });
-    if (!student) {
-      return res.status(404).json({ message: "Student not found" });
-    }
+    if (!student) return res.status(404).json({ message: "Student not found" });
 
-    // جلب السيشن مع الأجزاء
+    // ✅ جلب السيشن
     const session = await Session.findById(sessionId);
-    if (!session) {
-      return res.status(404).json({ message: "Session not found" });
-    }
-
+    if (!session) return res.status(404).json({ message: "Session not found" });
     if (!session.segments || session.segments.length === 0) {
-      return res.status(400).json({ message: "This session has no segments / video quizzes" });
+      return res.status(400).json({ message: "This session has no segments" });
     }
 
-    // منع الإرسال المكرر بناءً على sessionProgress.isQuizSubmitted
+    // ✅ جلب السيجمنت المطلوب
+    const segment = session.segments.find(s => String(s._id) === String(segmentId));
+    if (!segment) {
+      return res.status(400).json({ message: `Invalid segmentId: ${segmentId}` });
+    }
+
+    // 🔍 منع الإرسال المكرر بعد الكويز كله
     const progressIndex = student.sessionProgress.findIndex(sp => String(sp.session) === String(sessionId));
     if (progressIndex > -1 && student.sessionProgress[progressIndex].isQuizSubmitted) {
-      // ممكن نعيد السماح لو عايز (مثلاً لو لم ينجح) — الآن نمنع تماماً
       return res.status(400).json({ message: "You have already submitted this quiz" });
     }
 
-    // احسب إجمالي النقاط للجلسة (من الأجزاء)
-    let sessionTotalPoints = 0;
-    session.segments.forEach(seg => {
-      const segPoints = (seg.questions || []).reduce((s, q) => s + (q.point || 1), 0);
-      sessionTotalPoints += segPoints;
-    });
+    // ✅ حساب نتيجة السيجمنت
+    let segScore = 0;
+    for (const q of segment.questions || []) {
+      const qIdStr = String(q._id);
+      const studentAnswerObj = responses.find(r => String(r.questionId) === qIdStr);
+      if (studentAnswerObj && String(studentAnswerObj.answer) === String(q.correctAnswer)) {
+        segScore += (q.point || 1);
+      }
+    }
 
-    // حساب الدرجات لكل جزء بناءً على الإجابات المرسلة
-    const segmentResults = [];
-    for (const seg of session.segments) {
-      const segIdStr = String(seg._id);
-      const segResponsesObj = answers.find(a => String(a.segmentId) === segIdStr);
-      const responses = (segResponsesObj && Array.isArray(segResponsesObj.responses)) ? segResponsesObj.responses : [];
+    const segPassingScore = (segment.passingScore != null)
+      ? segment.passingScore
+      : Math.ceil(((segment.questions || []).reduce((s, q) => s + (q.point || 1), 0)) * 0.5);
 
-      // حساب نقاط الجزء
-      let segScore = 0;
-      const questionMap = new Map(); // map questionId -> question (for quick lookup)
-      (seg.questions || []).forEach(q => questionMap.set(String(q._id), q));
+    const segPassed = segScore >= segPassingScore;
 
-      // لكل سؤال داخل الجزء، لو جاوب الطالب وجاوب صح نضيف نقاط السؤال
-      for (const q of seg.questions || []) {
-        const qIdStr = String(q._id);
-        const studentAnswerObj = responses.find(r => String(r.questionId) === qIdStr);
-        if (studentAnswerObj) {
-          // قارن الإجابة (string compare). لو تحتاج حساس لحالة الأحرف أو صيغ مختلفة عدّل هنا.
-          const studentAns = studentAnswerObj.answer;
-          const correctAns = q.correctAnswer;
-          if (String(studentAns) === String(correctAns)) {
-            segScore += (q.point || 1);
-          }
-        }
-        // إذا الطالب لم يجب على السؤال => 0 نقطة للسؤال
+    // ✅ تحديث session.studentResults (جزئي أو كامل)
+    const existingResultIndex = session.studentResults.findIndex(r => String(r.student) === String(student._id));
+    if (existingResultIndex > -1) {
+      const prevResult = session.studentResults[existingResultIndex];
+      const segIndex = prevResult.segmentResults.findIndex(r => String(r.segmentId) === String(segment._id));
+
+      if (segIndex > -1) {
+        prevResult.segmentResults[segIndex] = { segmentId: segment._id, score: segScore, passed: segPassed };
+      } else {
+        prevResult.segmentResults.push({ segmentId: segment._id, score: segScore, passed: segPassed });
       }
 
-      // تحقق النجاح في الجزء: مقارنـة النقاط المحققة بالـ passingScore (الـ passingScore مفترض يكون قيمة نقاط)
-      const segPassingScore = (seg.passingScore != null) ? seg.passingScore : Math.ceil(((seg.questions || []).reduce((s, q) => s + (q.point || 1), 0)) * 0.5);
-      const segPassed = segScore >= segPassingScore;
+      // تحديث الإجمالي الجزئي
+      const totalScore = prevResult.segmentResults.reduce((s, r) => s + (r.score || 0), 0);
+      const sessionTotalPoints = session.segments.reduce((s, seg) =>
+        s + (seg.questions || []).reduce((ss, q) => ss + (q.point || 1), 0), 0);
 
-      segmentResults.push({
-        segmentId: seg._id,
-        score: segScore,
-        passed: segPassed
+      prevResult.totalScore = totalScore;
+      prevResult.percentage = Math.round((totalScore / sessionTotalPoints) * 100 * 100) / 100;
+      prevResult.passed = prevResult.segmentResults.length === session.segments.length &&
+                          prevResult.segmentResults.every(r => r.passed);
+
+      prevResult.completedAt = prevResult.passed ? new Date() : null;
+
+    } else {
+      session.studentResults.push({
+        student: student._id,
+        segmentResults: [{ segmentId: segment._id, score: segScore, passed: segPassed }],
+        totalScore: segScore,
+        percentage: 0,
+        passed: segPassed && (session.segments.length === 1),
+        completedAt: segPassed && (session.segments.length === 1) ? new Date() : null
       });
     }
-
-    // حساب النتيجة الكلية والنسبة
-    const totalScore = segmentResults.reduce((s, r) => s + (r.score || 0), 0);
-    const percentage = sessionTotalPoints > 0 ? Math.round((totalScore / sessionTotalPoints) * 100 * 100) / 100 : 0; // دقّة لحد 2 عشرية
-    const overallPassed = segmentResults.every(r => r.passed === true);
-
-    // تحديث session.studentResults (إضافة أو تعديل سجل الطالب)
-    const existingResultIndex = session.studentResults.findIndex(r => String(r.student) === String(student._id));
-    const studentResultEntry = {
-      student: student._id,
-      segmentResults: segmentResults.map(r => ({
-        segmentId: r.segmentId,
-        score: r.score,
-        passed: r.passed
-      })),
-      totalScore,
-      percentage,
-      passed: overallPassed,
-      completedAt: new Date()
-    };
-
-    if (existingResultIndex > -1) {
-      // تعديل
-      session.studentResults[existingResultIndex] = Object.assign(session.studentResults[existingResultIndex], studentResultEntry);
-    } else {
-      session.studentResults.push(studentResultEntry);
-    }
-
     await session.save();
 
-    // تحديث student.sessionProgress: وسمه إنه قدم الـ quiz
-    if (progressIndex > -1) {
-      student.sessionProgress[progressIndex].isQuizSubmitted = true;
-    } else {
-      student.sessionProgress.push({
-        session: sessionId,
-        isQuizSubmitted: true
-      });
+    // ✅ تحديث progress بالـ endTime للسيجمنت الحالي لو نجح
+    if (segPassed) {
+      if (progressIndex > -1) {
+        student.sessionProgress[progressIndex].watchedVideoProgress = segment.endTime;
+      } else {
+        student.sessionProgress.push({
+          session: sessionId,
+          watchedVideoProgress: segment.endTime
+        });
+      }
+      await student.save();
     }
-    await student.save();
 
-    // رد النتيجة المفصّلة
-    const failedSegments = segmentResults.filter(r => !r.passed).map(r => String(r.segmentId));
-
-    if (!overallPassed) {
+    // ✅ الرد لو فشل
+    if (!segPassed) {
       return res.status(200).json({
-        message: "You did not pass all segments. Rewatch the failing segments and try again.",
-        totalScore,
-        percentage,
-        passed: false,
-        failedSegments,
-        segmentResults
+        message: `You did not pass segment "${segment.title}". Please rewatch and retry.`,
+        segmentId,
+        score: segScore,
+        passed: false
       });
     }
 
-    // ناجح
+    // ✅ لو ده آخر Segment والطالب نجح في الكل → ندي Points
+    const isLastSegment = String(session.segments[session.segments.length - 1]._id) === String(segmentId);
+    if (isLastSegment) {
+      student.redeemablePoints = (student.redeemablePoints) + (session.videoWatchPoints);
+
+      if (progressIndex > -1) {
+        student.sessionProgress[progressIndex].isQuizSubmitted = true;
+      } else {
+        student.sessionProgress.push({
+          session: sessionId,
+          isQuizSubmitted: true,
+          watchedVideoProgress: segment.endTime
+        });
+      }
+
+      await student.save();
+
+      return res.status(200).json({
+        message: "Quiz completed successfully — all segments passed",
+        segmentId,
+        score: segScore,
+        passed: true,
+        videoWatchPoints: session.videoWatchPoints || 0
+      });
+    }
+
+    //=================================================== 
+    student.sessionProgress.push({
+      watchedVideoProgress: segment.endTime
+    });
+    // ✅ الرد لو ده مش آخر Segment
     return res.status(200).json({
-      message: "Quiz submitted successfully — all segments passed",
-      totalScore,
-      percentage,
-      passed: true,
-      segmentResults
+      message: `Segment "${segment.title}" passed successfully. You can proceed to the next segment.`,
+      segmentId,
+      score: segScore,
+      passed: true
     });
 
   } catch (error) {
@@ -969,100 +1089,21 @@ export const submit_VideoQuiz_Answers_service = async (req, res) => {
 };
 
 
-
-// ======================= monthly exam
-export const get_monthly_exams_service = async (req, res) => {
-  try {
-    const { _id: userId } = req.login_user;
-
-    const student = await Student.findOne({ user: userId });
-    if (!student) {
-      return res.status(404).json({ message: " Student not found" });
-    }
-
-    //  هجيب الامتحانات الشهرية المرتبطة بجريد الطالب )
-    const exams = await Exam.find({
-      isActive: true,
-      examType : EXAM_TYPE.MONTHLY ,
-      month: { $exists: true, $ne: null },
-    })
-
-    const filteredExams = exams.filter(exam =>
-      exam?.grade == student.grade &&
-      exam?.division == student.division
-    );
-
-    return res.status(200).json({
-      message: " Monthly exams fetched successfully",
-      exams: filteredExams
-    });
-
-  } catch (error) {
-    console.error(" Error in get_monthly_exams_service============>", error);
-    return res.status(500).json({ message: "Internal server error" });
-  }
-};
-
-
-
-
-
-
-
-
-
-
-
-
-
-// any thing below is under testing
-//===========================================
-
-
-export const redeem_points_for_session_service = async (req, res) => {
-  try {
-    const { _id: userId } = req.login_user;
-
-    const student = await Student.findOne({ user: userId });
-    if (!student) {
-      return res.status(404).json({ message: " Student not found" });
-    }
-
-    const POINTS_PER_SESSION = 1000;
-
-    if (student.redeemablePoints < POINTS_PER_SESSION) {
-      return res.status(400).json({
-        message: ` You need at least ${POINTS_PER_SESSION} points to redeem a free session`
-      });
-    }
-
-    //  احسب عدد الحصص الممكن استبدالها
-    const sessionsToAdd = Math.floor(student.redeemablePoints / POINTS_PER_SESSION);
-
-    //  خصم النقاط
-    student.redeemablePoints -= sessionsToAdd * POINTS_PER_SESSION;
-
-    //  إضافة الحصص المجانية
-    student.sessionCredits += sessionsToAdd;
-
-    await student.save();
-
-    return res.status(200).json({
-      message: ` Successfully redeemed ${sessionsToAdd} free session(s)`,
-      remainingPoints: student.redeemablePoints,
-      totalSessionCredits: student.sessionCredits
-    });
-  } catch (error) {
-    console.error(" Error in redeem_points_for_session_service:", error);
-    return res.status(500).json({ message: "Internal server error" });
-  }
-};
-
-
 export const submit_Exam_Solution_service = async (req, res) => {
   try {
     const { examId } = req.params;
     const { _id: userId } = req.login_user;
+    let { answers } = req.body; // [{ questionId, answer }]
+
+    
+    // لو جايالي كـ string من form-data
+  if (typeof answers === "string") {
+  try {
+    answers = JSON.parse(answers);
+  } catch (err) {
+    return res.status(400).json({ message: "Invalid answers JSON format" });
+  }
+}
 
     //  Check if file exists
     if (!req.file) {
@@ -1085,39 +1126,209 @@ export const submit_Exam_Solution_service = async (req, res) => {
 
     //  Find Exam
     const examExist = await Exam.findById(examId);
-    if (!examExist  || examExist.examType == EXAM_TYPE.MONTHLY  || examExist.month  ) {
+    if (!examExist ) {
       return res.status(400).json({ message: " Exam not found" });
     }
 
-    //  Upload PDF to Cloudinary
-    const folderPath = `${process.env.FOLDER_NAME_CLOUDINARY}/User/Submissions/Exams/${examExist.title}`;
-    const uploadResult = await cloudinary().uploader.upload(req.file.path, {
-      folder: folderPath,
-      resource_type: "raw",
-      format: "pdf"
-    });
 
-    if (!uploadResult?.public_id || !uploadResult?.secure_url) {
-      return res.status(500).json({ message: " Failed to upload file to Cloudinary" });
+    // if session exam
+    if (examExist.examType == EXAM_TYPE.SESSION ) {
+
+    const existingProgress = student?.sessionProgress?.find(
+      sp => sp.session.toString() === examExist.relatedSession && sp.isExamSubmitted === true
+    );
+
+    if (existingProgress) {
+      return res.status(400).json({ message: " You have already submitted this exam" });
     }
 
-    //  Create new submission
+    }
+
+    // if monthly exam
+    if(examExist.examType === EXAM_TYPE.MONTHLY) {
+  const alreadySubmitted = await Submission.findOne({
+    student: student._id,
+    exam: examExist._id
+  });
+
+  if(alreadySubmitted) {
+    return res.status(400).json({ message: "You have already submitted this monthly exam" });
+  }
+}
+
+
+
+    // ================== Validate Answers IDs ==================
+    const validQuestionIds = new Set();
+
+    for (const group of examExist.questions.questionBank || []) {
+      for (const q of group.questions || []) {
+        validQuestionIds.add(String(q._id));
+      }
+    }
+
+    for (const q of examExist.questions.multipleChoices || []) {
+      validQuestionIds.add(String(q._id));
+    }
+
+    for (const q of examExist.questions.essay || []) {
+      validQuestionIds.add(String(q._id));
+    }
+
+    for (const ans of answers || []) {
+      if (!validQuestionIds.has(String(ans.questionId))) {
+        return res.status(400).json({
+          message: `Invalid questionId: ${ans.questionId} - not found in this exam`
+        });
+      }
+    }
+
+    // ================== Variables ==================
+    let totalScore = 0;        // درجات الطالب (grades)
+    let examTotalGrade = 0;    // مجموع درجات الأسئلة اللي الطالب جاوب عليها
+    let examTotalPoints = 0;   // مجموع نقاط الأسئلة اللي الطالب جاوب عليها
+    let studentPoints = 0;     // النقاط اللي الطالب جابها صح
+
+    const studentAnswers = {
+      questionBank: [],
+      multipleChoices: [],
+      essay: []
+    };
+
+    // 📌 1) Question Bank
+    for (const group of examExist.questions.questionBank || []) {
+      const groupResult = { questionsGroupName: group.questionsGroupName, questions: [] };
+
+      for (const q of group.questions || []) {
+        const studentAnsObj = answers?.find(a => String(a.questionId) === String(q._id));
+        let isCorrect = false;
+
+        if (studentAnsObj) {
+          examTotalGrade += (q.grade || 1);
+          examTotalPoints += (q.point || 1);
+
+          isCorrect = String(studentAnsObj.answer) === String(q.correctAnswer);
+          if (isCorrect) {
+            totalScore += (q.grade || 1);
+            studentPoints += (q.point || 1);
+          }
+        }
+
+        groupResult.questions.push({
+          questionId: q._id,
+          questionText: q.questionText,
+          options: q.options || [],
+          studentAnswer: studentAnsObj ? studentAnsObj.answer : null,
+          correctAnswer: q.correctAnswer,
+          isCorrect,
+          point: q.point,
+          grade: q.grade,
+          assistantNotes: null
+        });
+      }
+
+      studentAnswers.questionBank.push(groupResult);
+    }
+
+    // 📌 2) Multiple Choice
+    for (const q of examExist.questions.multipleChoices || []) {
+      const studentAnsObj = answers?.find(a => String(a.questionId) === String(q._id));
+      let isCorrect = false;
+
+      if (studentAnsObj) {
+        examTotalGrade += (q.grade || 1);
+        examTotalPoints += (q.point || 1);
+
+        isCorrect = String(studentAnsObj.answer) === String(q.correctAnswer);
+        if (isCorrect) {
+          totalScore += (q.grade || 1);
+          studentPoints += (q.point || 1);
+        }
+      }
+
+      studentAnswers.multipleChoices.push({
+        questionId: q._id,
+        questionText: q.questionText,
+        options: q.options || [],
+        studentAnswer: studentAnsObj ? studentAnsObj.answer : null,
+        correctAnswer: q.correctAnswer,
+        isCorrect,
+        point: q.point,
+        grade: q.grade,
+        assistantNotes: null
+      });
+    }
+
+    // 📌 3) Essay
+    for (const q of examExist.questions.essay || []) {
+      const studentAnsObj = answers?.find(a => String(a.questionId) === String(q._id));
+
+      if (studentAnsObj) {
+        examTotalGrade += (q.grade || 1);
+        examTotalPoints += (q.point || 1);
+      }
+
+      studentAnswers.essay.push({
+        questionId: q._id,
+        questionText: q.questionText,
+        studentAnswer: studentAnsObj ? studentAnsObj.answer : null,
+        correctAnswer: null,
+        isCorrect: null,
+        point: q.point,
+        grade: q.grade,
+        assistantNotes: null
+      });
+    }
+
+    // ================== Final score ==================
+    const percentage = examTotalGrade > 0
+      ? Math.round((totalScore / examTotalGrade) * 100 * 100) / 100
+      : 0;
+
+    const passed = percentage >= (examExist.passingScore);
+
+    // ================== رفع الـ PDF ==================
+    const folderPath = `User/Submissions/Exam/${examExist?.title}/${student?.fullName}`;
+    
+    const fileData = await uploadToDrive(
+      req.file.path,
+      req.file.filename,
+      req.file.mimetype,
+      folderPath
+    );
+
+    // ================== Create Submission ==================
     const newSubmission = await Submission.create({
       student: student._id,
       exam: examExist._id,
-      submissionType: SUBMISSION_TYPE.EXAM,
+      submissionType: examExist?.month ? SUBMISSION_TYPE.MONTHLY_EXAM : SUBMISSION_TYPE.EXAM ,
       pdfSolution: {
-        files: { public_id: uploadResult.public_id, secure_url: uploadResult.secure_url },
+        files: {
+          Folder_name: fileData.name ,
+          secure_url: fileData.webViewLink
+        },
         folderId: folderPath
       },
-      deadline: examExist.deadline
+      deadline: examExist.deadline || Date.now() ,
+      submissionTime: Date.now(),
+      studentResult : {
+        totalGrade: examTotalGrade,  // ✅ مجموع الدرجات في الامتحان
+        totalPoints: examTotalPoints, // ✅ مجموع النقاط
+        passingScore : examExist.passingScore ,
+
+        studentGrade :  totalScore,        // ✅ درجات الطالب (Grade)
+        studentPoints :  studentPoints,        // ✅ بوينتس الطالب (points)
+        percentage,
+        passed,
+        answers: studentAnswers
+  }
     });
 
-    //  Add submission to Exam
+    // Add submission to Exam
     examExist.submissions.push(newSubmission._id);
     await examExist.save();
 
-    //  Update Student sessionProgress
+    // Update student progress
     const sessionProgressIndex = student.sessionProgress.findIndex(
       sp => sp.session?.toString() === examExist.relatedSession?.toString()
     );
@@ -1149,10 +1360,134 @@ export const submit_Exam_Solution_service = async (req, res) => {
 
 
 
+// ======================= monthly exam
+
+export const get_exams_service = async (req, res) => {
+  try {
+    const { _id: userId } = req.login_user;
+
+    const student = await Student.findOne({ user: userId });
+    if (!student) {
+      return res.status(404).json({ message: " Student not found" });
+    }
+
+    // ✅ هجيب الامتحانات الشهرية المرتبطة بجريد الطالب
+    const exams = await Exam.find({
+      isActive: true
+    }).lean();
+
+    const filteredExams = exams
+      .filter(exam =>
+        exam?.grade == student.grade &&
+        exam?.division == student.division
+      )
+      .map(exam => {
+        const randomizedExam = { ...exam };
+
+        // 📌 Bank Questions → سؤال عشوائي من كل جروب
+        if (randomizedExam.questions?.questionBank) {
+          randomizedExam.questions.questionBank =
+            randomizedExam.questions.questionBank.map(group => {
+              if (group.questions?.length > 0) {
+                const randomIndex = Math.floor(Math.random() * group.questions.length);
+                return {
+                  ...group,
+                  questions: [group.questions[randomIndex]]
+                };
+              }
+              return group;
+            });
+        }
+
+        // 📌 Multiple Choice → shuffle للأسئلة + shuffle للـ options
+        if (randomizedExam.questions?.multipleChoices?.length > 0) {
+          randomizedExam.questions.multipleChoices = shuffleArray(
+            randomizedExam.questions.multipleChoices.map(q => ({
+              ...q,
+              options: q.options ? shuffleArray(q.options) : []
+            }))
+          );
+        }
+
+        // 📌 Essay → shuffle للأسئلة
+        if (randomizedExam.questions?.essay?.length > 0) {
+          randomizedExam.questions.essay = shuffleArray(randomizedExam.questions.essay);
+        }
+
+        return randomizedExam;
+      });
+
+    return res.status(200).json({
+      message: " Monthly exams fetched successfully",
+      exams: filteredExams
+    });
+
+  } catch (error) {
+    console.error(" Error in get_monthly_exams_service============>", error);
+    return res.status(500).json({ message: "Internal server error" });
+  }
+};
 
 
 
-// ============================== need to work with ( assistant and supervisor flow ) ===================== >for abduo
+
+// session from points
+export const redeem_points_for_session_service = async (req, res) => {
+  try {
+    const { _id: userId } = req.login_user;
+
+    const student = await Student.findOne({ user: userId });
+    if (!student) {
+      return res.status(404).json({ message: " Student not found" });
+    }
+
+    const POINTS_PER_SESSION = 500 ;
+
+    if (student.redeemablePoints < POINTS_PER_SESSION) {
+      return res.status(400).json({
+        message: ` You need at least ${POINTS_PER_SESSION} points to redeem a free session`
+      });
+    }
+
+    //  احسب عدد الحصص الممكن استبدالها
+    const sessionsToAdd = Math.floor(student.redeemablePoints / POINTS_PER_SESSION);
+
+    //  خصم النقاط
+    student.redeemablePoints -= sessionsToAdd * POINTS_PER_SESSION;
+
+    //  إضافة الحصص المجانية
+    student.sessionCredits += sessionsToAdd;
+
+    await student.save();
+
+    return res.status(200).json({
+      message: ` Successfully redeemed ${sessionsToAdd} free session(s)`,
+      remainingPoints: student.redeemablePoints,
+      totalSessionCredits: student.sessionCredits
+    });
+  } catch (error) {
+    console.error(" Error in redeem_points_for_session_service:", error);
+    return res.status(500).json({ message: "Internal server error" });
+  }
+};
+
+
+
+
+
+
+
+
+
+// any thing below is under testing
+//===========================================
+
+
+
+
+
+
+
 export const get_Section_Status_service = async (req, res) => {
   try {
     const { sessionId } = req.params;
@@ -1251,6 +1586,8 @@ export const get_exam_Status_service = async (req, res) => {
     return res.status(500).json({ message: "Internal server error" });
   }
 };
+
+
 
 
 

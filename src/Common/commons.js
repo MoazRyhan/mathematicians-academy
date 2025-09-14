@@ -1,7 +1,5 @@
+import rateLimit from "express-rate-limit";
 import { STUDENT_ENUMS } from "../Constants/constants.js";
-import Exam from "../DB/Models/exam.model.js";
-import Homework from "../DB/Models/homework.model.js";
-import Section from "../DB/Models/section.model.js";
 import Student from "../DB/Models/student.model.js";
 
 // Helper function: Generate sequential unique student code
@@ -55,11 +53,24 @@ export const generateSequentialStudentCode = async (grade, division) => {
   }
 };
 
+// for random questions in the exam
+export const shuffleArray = (array) => {
+  const arr = [...array];
+  for (let i = arr.length - 1; i > 0; i--) {
+    const j = Math.floor(Math.random() * (i + 1));
+    [arr[i], arr[j]] = [arr[j], arr[i]];
+  }
+  return arr;
+};
 
-export  function EGPNow() {
-  const now = new Date();
- const egyptOffset = 1 * 60 * 60 * 1000; // +1 ساعات
- const egyptDateNow = new Date(now.getTime() + egyptOffset);
-  return egyptDateNow
 
-}
+
+
+// // to limit much req
+export const auth_rate_limit =  rateLimit({
+      windowMs : 5 * 60 * 1000 , // 5 minutes
+      limit : 10 ,
+      message : " Too many requests from this IP, please try again later." ,
+      legacyHeaders : false
+  })
+  

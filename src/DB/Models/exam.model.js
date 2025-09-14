@@ -3,7 +3,7 @@ import { EXAM_TYPE, EXAM_TIME_TYPE } from "../../Constants/constants.js";
 
 const questionSchema = new mongoose.Schema({
   questionText: { type: String, required: true },
-  options: [{ type: String }], // موجودة في الـ MCQ فقط
+  options: [{ type: String }], // موجودة في الـ MCQ فقط and bank
   correctAnswer: { type: String }, // صح للإجابة
   point: { type: Number, default: 1 }, // كل سؤال له نقاط
   grade: { type: Number, default: 1 }, // كل سؤال له نقاط
@@ -29,6 +29,7 @@ const examSchema = new mongoose.Schema({
 
   totalPoints: { type: Number, default: 0 }, // ✅ مجموع النقاط (يحسب عند الإنشاء)
   totalGrades: { type: Number, default: 0 }, // ✅ مجموع الدرجات )
+  passingScore: { type: Number, default: 50 }, // الحد الادني للنجاح
 
 
   

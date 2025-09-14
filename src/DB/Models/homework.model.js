@@ -5,13 +5,6 @@ const homeworkSchema = new mongoose.Schema({
   title: { type: String, required: true },
   description: { type: String },
 
-  // 🔹 Homework resources (e.g., PDF, Docs, etc.)
-    materials: { // ====================== > no use for this
-    files :{public_id : String,
-      secure_url : String },
-      folderId : String 
-    }, 
-
   // 🔹 Whether the homework is currently active
   isActive: { type: Boolean, default: true },
 
@@ -48,6 +41,7 @@ const homeworkSchema = new mongoose.Schema({
   ],
 
     // ✅ the new things
+  passingScore: { type: Number, default: 50 },
   totalQuestions: { type: Number, default: 0 },
   totalPoints: { type: Number, default: 0 },
   totalGrade: { type: Number, default: 0 },

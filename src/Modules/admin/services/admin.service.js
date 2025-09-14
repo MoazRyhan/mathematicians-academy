@@ -1,5 +1,5 @@
 import { hashSync } from "bcrypt";
-import { STUDENT_ENUMS, system_role } from "../../../Constants/constants.js";
+import { ATTENDANCE_TYPE, STUDENT_ENUMS, system_role } from "../../../Constants/constants.js";
 import Admin from "../../../DB/Models/admin.model.js";
 import Teacher from "../../../DB/Models/teacher.model.js";
 import User from "../../../DB/Models/user.model.js";
@@ -18,9 +18,8 @@ import crypto from "crypto";
 import mongoose from "mongoose";
 import Group from "../../../DB/Models/group.model.js";
 
-/**
- * Get admin details
- */
+//===============================Get admin details
+
 export const get_admin_service = async (req, res) => {
   try {
     const { _id } = req.login_user; // this is the userId from token
@@ -173,11 +172,14 @@ export const delete_admin_service = async (req, res) => {
   }
 };
 
-// ==================================
 
-/**
- * manipulation  the users
- */
+
+
+
+
+
+
+// ================================== manipulation  the users
 
 //  Add Teacher
 export const add_teacher_service = async (req, res) => {
@@ -315,7 +317,6 @@ export const add_supervisor_service = async (req, res) => {
     return res.status(500).json({ message: "internal server error" });
   }
 };
-
 
 //  Add Assistant
 export const add_assistant_service = async (req, res) => {
@@ -586,6 +587,8 @@ export const remove_user_service = async (req, res) => {
 
 
 
+//=========================================== random things
+
 export const generate_payment_codes_service = async (req, res) => {
   try {
     const { count } = req.body;
@@ -623,13 +626,63 @@ export const generate_payment_codes_service = async (req, res) => {
 };
 
 
+export const register_Student_Attendance_service = async (req, res) => {
+  try {
+    const { studentId, sessionId, method } = req.body; // method = qr | manual
+    const { _id: adminUserId } = req.login_user;
 
-// any thing below is under testing
-//===============================
+    if (!studentId || !sessionId) {
+      return res.status(400).json({ message: " studentId and sessionId are required" });
+    }
 
+    //  جلب بيانات الطالب
+    const student = await Student.findById(studentId);
+    if (!student) {
+      return res.status(404).json({ message: " Student not found" });
+    }
 
+    //  جلب بيانات الحصة
+    const session = await Session.findById(sessionId);
+    if (!session) {
+      return res.status(404).json({ message: " Session not found" });
+    }
 
+    //  التحقق من أن الطالب والحصة لهم نفس الجريد والدفشن
+    if (student.grade !== session.grade || student.division !== session.division) {
+      return res.status(400).json({ message: " Student grade/division does not match the session" });
+    }
 
+    //  جلب الأدمن
+    const admin = await Admin.findOne({ user: adminUserId });
+    if (!admin) {
+      return res.status(404).json({ message: " Admin not found" });
+    }
+
+    //  التأكد إذا كان الطالب عنده sessionProgress للحصة
+    let sessionProgress = student.sessionProgress.find(sp => sp.session.toString() === sessionId);
+
+    if (!sessionProgress) {
+      //  إضافة الحصة للطالب مع صلاحية 7 أيام
+      student.sessionProgress.push({
+        session: sessionId,
+        expirationDate: new Date(Date.now() + 7 * 24 * 60 * 60 * 1000), // +7 أيام
+        attendanceRegistered: true,
+        method: method ? ATTENDANCE_TYPE.MANUAL : ATTENDANCE_TYPE.QR 
+      });
+    } else {
+      //  لو موجودة، فقط حدّث الحضور
+      sessionProgress.attendanceRegistered = true;
+      sessionProgress.method = method ? ATTENDANCE_TYPE.MANUAL : ATTENDANCE_TYPE.QR  ;
+    }
+
+    await student.save();
+
+    return res.status(200).json({ message: " Attendance registered successfully and session added for 7 days" });
+  } catch (error) {
+    console.error(" Error in registerStudentAttendance:", error);
+    return res.status(500).json({ message: "Internal server error" });
+  }
+};
 
 
 export const open_session_for_all_students_service = async (req, res) => {
@@ -673,7 +726,6 @@ export const open_session_for_all_students_service = async (req, res) => {
       if (!existingProgress) {
         student.sessionProgress.push({
           session: sessionId,
-          isPaid: true,
           expirationDate
         });
         await student.save();
@@ -699,7 +751,160 @@ export const open_session_for_all_students_service = async (req, res) => {
   }
 };
 
-// important / new things 
+
+export const admin_Reset_Password_service = async (req, res) => {
+  try {
+    const { userId, newPassword } = req.body;
+    const { role } = req.login_user;
+
+    // ✅ لازم يكون الأدمن
+    if (role !==  system_role.ADMIN ) {
+      return res.status(403).json({ message: "Access denied" });
+    }
+
+    // ✅ نلاقي اليوزر
+    const user = await User.findById(userId);
+    if (!user) {
+      return res.status(404).json({ message: "User not found" });
+    }
+
+
+    // 6️⃣ Hash password
+    const hashedPassword = hashSync(newPassword, +process.env.PASSWORD_SALT);
+
+    // ✅ نحدّث الباسورد + نطلب منه يغيره بعدين
+    user.password = hashedPassword;
+    await user.save();
+
+    return res.status(200).json({ message: "Password reset successfully. User must change password on next login." });
+
+  } catch (error) {
+    console.error("Error in adminResetPassword:", error);
+    return res.status(500).json({ message: "Internal server error" });
+  }
+};
+
+
+
+
+//===========================================list the  / assistant / supervisor / accountant /  students 
+
+
+
+export const list_Assistants_service = async (req, res) => {
+  try {
+    const { _id } = req.login_user;
+
+    //  check admin exists
+    const adminRecord = await Admin.findOne({ user : _id });
+    if (!adminRecord) {
+      return res.status(403).json({ message: " Only admins can list assistant" });
+    }
+
+    // ✅ هات كل الـ Assistants مع بيانات الـ User
+    const assistants = await Assistant.find()
+      .populate("user", "name email role") // populate بيانات اليوزر المرتبط
+      .select("-__v"); // نشيل حاجات مش لازمة
+
+    return res.status(200).json({
+      message: "✅ Assistants fetched successfully",
+      count: assistants.length,
+      assistants,
+    });
+  } catch (error) {
+    console.error("Error in list_Assistants_service:", error);
+    return res.status(500).json({ message: error.message || "Internal server error" });
+  }
+};
+export const list_Supervisors_service = async (req, res) => {
+  try {
+    const { _id } = req.login_user;
+
+    // ✅ check admin exists
+    const adminRecord = await Admin.findOne({ user: _id });
+    if (!adminRecord) {
+      return res.status(403).json({ message: "Only admins can list supervisors" });
+    }
+
+    // ✅ get supervisors with user info
+    const supervisors = await Supervisor.find()
+      .populate("user", "name email role")
+      .select("-__v");
+
+    return res.status(200).json({
+      message: "✅ Supervisors fetched successfully",
+      count: supervisors.length,
+      supervisors,
+    });
+  } catch (error) {
+    console.error("Error in list_Supervisors_service:", error);
+    return res.status(500).json({ message: error.message || "Internal server error" });
+  }
+};
+export const list_Accountants_service = async (req, res) => {
+  try {
+    const { _id } = req.login_user;
+
+    // ✅ check admin exists
+    const adminRecord = await Admin.findOne({ user: _id });
+    if (!adminRecord) {
+      return res.status(403).json({ message: "Only admins can list accountants" });
+    }
+
+    // ✅ get accountants with user info
+    const accountants = await Accountant.find()
+      .populate("user", "name email role")
+      .select("-__v");
+
+    return res.status(200).json({
+      message: "✅ Accountants fetched successfully",
+      count: accountants.length,
+      accountants,
+    });
+  } catch (error) {
+    console.error("Error in list_Accountants_service:", error);
+    return res.status(500).json({ message: error.message || "Internal server error" });
+  }
+};
+export const list_Students_service = async (req, res) => {
+  try {
+    const { _id } = req.login_user;
+
+    // ✅ check admin exists
+    const adminRecord = await Admin.findOne({ user: _id });
+    if (!adminRecord) {
+      return res.status(403).json({ message: "Only admins can list students" });
+    }
+
+    // ✅ get students with user info
+    const students = await Student.find()
+      .populate("user", "name email role")
+      .select("-__v");
+
+    return res.status(200).json({
+      message: "✅ Students fetched successfully",
+      count: students.length,
+      students,
+    });
+  } catch (error) {
+    console.error("Error in list_Students_service:", error);
+    return res.status(500).json({ message: error.message || "Internal server error" });
+  }
+};
+
+
+
+
+
+
+// any thing below is under testing
+//===============================
+
+
+
+
+
+
 export const assign_Assistant_To_Supervisor_service = async (req, res) => {
   try {
     const { supervisorId, assistantId } = req.body;
@@ -735,74 +940,6 @@ export const assign_Assistant_To_Supervisor_service = async (req, res) => {
     return res.status(500).json({ message: "Internal server error" });
   }
 };
-
-// important  / new things
-export const register_Student_Attendance_service = async (req, res) => {
-  try {
-    const { studentId, sessionId, method } = req.body; // method = qr | manual
-    const { _id: adminUserId } = req.login_user;
-
-    if (!studentId || !sessionId) {
-      return res.status(400).json({ message: " studentId and sessionId are required" });
-    }
-
-    //  جلب بيانات الطالب
-    const student = await Student.findById(studentId);
-    if (!student) {
-      return res.status(404).json({ message: " Student not found" });
-    }
-
-    //  جلب بيانات الحصة
-    const session = await Session.findById(sessionId);
-    if (!session) {
-      return res.status(404).json({ message: " Session not found" });
-    }
-
-    //  التحقق من أن الطالب والحصة لهم نفس الجريد والدفشن
-    if (student.grade !== session.grade || student.division !== session.division) {
-      return res.status(400).json({ message: " Student grade/division does not match the session" });
-    }
-
-    //  جلب الأدمن
-    const admin = await Admin.findOne({ user: adminUserId });
-    if (!admin) {
-      return res.status(404).json({ message: " Admin not found" });
-    }
-
-    //  تسجيل الحضور في جدول الأدمن
-    admin.manualAttendance.push({
-      student: studentId,
-      session: sessionId,
-      method: method || ATTENDANCE_TYPE.MANUAL,
-    });
-
-    //  التأكد إذا كان الطالب عنده sessionProgress للحصة
-    let sessionProgress = student.sessionProgress.find(sp => sp.session.toString() === sessionId);
-
-    if (!sessionProgress) {
-      //  إضافة الحصة للطالب مع صلاحية 7 أيام
-      student.sessionProgress.push({
-        session: sessionId,
-        isPaid: true, // نعتبره مدفوع عشان يشتغل
-        expirationDate: new Date(Date.now() + 7 * 24 * 60 * 60 * 1000), // +7 أيام
-        attendanceRegistered: true
-      });
-    } else {
-      //  لو موجودة، فقط حدّث الحضور
-      sessionProgress.attendanceRegistered = true;
-    }
-
-    await admin.save();
-    await student.save();
-
-    return res.status(200).json({ message: " Attendance registered successfully and session added for 7 days" });
-  } catch (error) {
-    console.error(" Error in registerStudentAttendance:", error);
-    return res.status(500).json({ message: "Internal server error" });
-  }
-};
-
-
 
 
 export const update_group_members_service = async (req, res) => {
@@ -866,5 +1003,6 @@ export const update_group_members_service = async (req, res) => {
     return res.status(500).json({ message: "Internal server error" });
   }
 };
+
 
 
