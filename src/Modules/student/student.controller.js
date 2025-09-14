@@ -32,14 +32,9 @@ student_controller.get("/get_exams",  error_handler_middleware( student_services
 // session from the points
 student_controller.post("/redeem_points",  error_handler_middleware(student_services.redeem_points_for_session_service));
 
-
-
-
-// ======================================== testing
-
-
-student_controller.get("/get_section_status/:sessionId",  error_handler_middleware (student_services.get_Section_Status_service))
+// get results
 student_controller.get("/get_homework_status/:sessionId",  error_handler_middleware (student_services.get_Homework_Status_service));
+student_controller.get("/get_section_status/:sessionId",  error_handler_middleware (student_services.get_Section_Status_service))
 student_controller.get("/get_exam_status/:examId",  error_handler_middleware (student_services.get_exam_Status_service));
 
 

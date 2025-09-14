@@ -26,8 +26,6 @@ export const get_supervisor_data_service = async (req, res) => {
     const supervisor = await Supervisor.findOne({ user: user._id })
       .populate({ path: "teacher", select: "name email" })
       .populate({ path: "assistants", select: "user performanceScore" })
-      .populate({ path: "correctionReviews", select: "status createdAt" })
-      .populate({ path: "correctionRequest", select: "status createdAt" })
       .populate({ path: "assistantRequest", select: "status createdAt" });
 
     if (!supervisor) {
@@ -67,7 +65,8 @@ export const get_Supervisor_Assistants_service = async (req, res) => {
     const { _id: supervisorId } = req.login_user;
 
     const supervisor = await Supervisor.findOne( { user :supervisorId} )
-      .populate('assistants', 'user performanceScore');  // custom it for abdu
+      .populate('assistants', 'user performanceScore')  // custom it for abdu
+      .populate("groups", "name students")  // custom it for abdu
 
     if (!supervisor) {
       return res.status(404).json({ message: "Supervisor not found" });
@@ -141,14 +140,9 @@ export const create_group_service = async (req, res) => {
     const { _id: userId, role: ROLE } = req.login_user;
     const { name, supervisorId, assistantId } = req.body;
 
-    if (!name) {
-      return res.status(400).json({ message: " Group name is required" });
+    if (!name || !assistantId ) {
+      return res.status(400).json({ message: " Group name and Assistant is required" });
     }
-
-    if (!assistantId) {
-      return res.status(400).json({ message: " Assistant ID is required" });
-    }
-
     let assignedSupervisorId;
 
     //  لو أدمن لازم يبعـت ID السوبرفايزر

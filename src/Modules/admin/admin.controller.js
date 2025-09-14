@@ -41,6 +41,12 @@ admin_controller.post("/register-attendance",   error_handler_middleware(admin_s
 admin_controller.post("/reset_password",  error_handler_middleware(admin_services.admin_Reset_Password_service));
 
 
+// add assistant to super
+admin_controller.post("/assign_assistant", error_handler_middleware(admin_services.assign_Assistant_To_Supervisor_service));
+
+// updata group data
+admin_controller.put(  "/update_group_members" , error_handler_middleware(admin_services.update_group_members_service ));
+
 //===========================================list the  / assistant / supervisor / accountant /  students 
 
 admin_controller.get("/assistants", error_handler_middleware(admin_services.list_Assistants_service));
@@ -53,12 +59,5 @@ admin_controller.get("/students", error_handler_middleware(admin_services.list_S
 
 
 
-
-// ========================= under testing
-
-admin_controller.post("/assign_assistant", error_handler_middleware(admin_services.assign_Assistant_To_Supervisor_service));
-
-
-admin_controller.put(  "/update_group_members" , error_handler_middleware(admin_services.update_group_members_service ));
 
 export default admin_controller

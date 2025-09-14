@@ -10,9 +10,8 @@ const { SUPERVISOR , ADMIN } = system_role
 
 // ====================================== this is all for the admin and the teacher
 
-// basic work for supervisor
+// basic work for supervisor and admin
 supervisor_controller.post("/create_group", authentication_middleware() , authorization_middleware([SUPERVISOR , ADMIN ]) , error_handler_middleware(  supervisor_services.create_group_service));
-
 
 //====================================================================================================================
 

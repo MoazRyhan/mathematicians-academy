@@ -176,7 +176,7 @@ export const sign_up_service = async (req, res) => {
         });
       }
 
-      const folderPath = `${process.env.FOLDER_NAME_CLOUDINARY}/User/IdPhotos/${createdUser._id}`;
+      const folderPath = `${process.env.FOLDER_NAME_CLOUDINARY}/User/IdPhotos/${createdUser?.name}===${createdUser?.email}`;
       const uploadedImages = [];
 
       for (const file of files) {
